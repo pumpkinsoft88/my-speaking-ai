@@ -1,3 +1,4 @@
+<!-- /src/lib/components/VoiceIndicator.svelte -->
 <script>
 	export let label = '';
 	export let isActive = false;

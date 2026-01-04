@@ -1,3 +1,4 @@
+<!-- /src/lib/components/RecordingInterface.svelte -->
 <script>
 	import { onMount, onDestroy } from 'svelte';
 	import { AudioRecorder } from '$lib/recording/recorder.js';

@@ -1,3 +1,4 @@
+<!-- /src/lib/components/WaveformCanvas.svelte -->
 <script>
 	import { onMount, onDestroy } from 'svelte';
 

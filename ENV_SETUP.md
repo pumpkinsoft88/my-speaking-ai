@@ -247,6 +247,140 @@ cat .env
 
 ---
 
+---
+
+## 7. Supabase 리디렉션 URL 설정
+
+이메일 인증 후 리디렉션이 제대로 작동하도록 Supabase에서 리디렉션 URL을 설정해야 합니다.
+
+### 7.1 Supabase 대시보드에서 설정
+
+1. **Supabase 대시보드 접속**
+   - https://supabase.com/dashboard 접속
+   - 프로젝트 선택
+
+2. **URL Configuration 페이지로 이동**
+   - 좌측 메뉴에서 "Authentication" 클릭
+   - "URL Configuration" 탭 선택
+
+3. **Site URL 설정**
+   - **Site URL**: 프로덕션 URL 설정
+     - 예: `https://my-speaking-16835l739-pklabs2021s-projects.vercel.app/`
+     - **중요**: URL 끝에 슬래시(`/`)를 포함해야 합니다
+   - 이 URL은 기본 리디렉션 URL로 사용됩니다
+   - 이메일 인증 링크가 이 URL을 기반으로 생성됩니다
+
+4. **Redirect URLs 추가**
+   - "Redirect URLs" 섹션에서 다음 URL들을 추가:
+   
+   **로컬 개발용:**
+   ```
+   http://localhost:5173/**
+   ```
+   
+   **Vercel 프로덕션용:**
+   ```
+   https://my-speaking-16835l739-pklabs2021s-projects.vercel.app/**
+   ```
+   
+   **Vercel 프리뷰 URL용 (와일드카드):**
+   ```
+   https://*-pklabs2021s-projects.vercel.app/**
+   ```
+   
+   > **참고**: `**`는 모든 경로를 포함하는 와일드카드입니다.
+
+5. **이메일 템플릿 확인 및 수정 (중요!)**
+   - Supabase 대시보드 → Authentication → Email Templates
+   - "Confirm signup" 템플릿 선택
+   - 이메일 본문에서 링크 부분 확인:
+   
+   **권장 설정:**
+   ```html
+   <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email">
+     Confirm your email
+   </a>
+   ```
+   
+   또는:
+   ```html
+   <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email">
+     Confirm your email
+   </a>
+   ```
+   
+   **주의사항:**
+   - `{{ .SiteURL }}`만 사용하면 Site URL로만 리디렉션됩니다
+   - `{{ .RedirectTo }}`를 사용하면 `signUp` 함수에서 설정한 `emailRedirectTo` 값이 사용됩니다
+   - 현재 코드는 `/auth/confirm`로 리디렉션하도록 설정되어 있으므로, `{{ .RedirectTo }}` 사용을 권장합니다
+
+### 7.2 환경 변수 설정 (선택사항)
+
+Vercel 배포 시 환경 변수를 설정하면 더 유연하게 관리할 수 있습니다:
+
+**Vercel 대시보드에서 환경 변수 설정:**
+1. Vercel 프로젝트 설정으로 이동
+2. "Environment Variables" 섹션으로 이동
+3. 다음 변수 추가:
+
+```
+PUBLIC_SITE_URL=https://my-speaking-16835l739-pklabs2021s-projects.vercel.app
+```
+
+**로컬 개발용 `.env` 파일에 추가:**
+```env
+PUBLIC_SITE_URL=http://localhost:5173
+```
+
+> **참고**: 환경 변수를 설정하지 않아도 앱은 자동으로 현재 URL을 사용합니다.
+
+### 7.3 이메일 인증 흐름
+
+1. 사용자가 회원가입
+2. Supabase가 인증 이메일 전송
+3. 사용자가 이메일의 링크 클릭
+4. Supabase가 `/auth/confirm` 페이지로 리디렉션
+5. 앱이 토큰을 확인하고 사용자 인증 완료
+6. 홈 페이지로 자동 리디렉션
+
+### 7.4 문제 해결
+
+**이메일 인증 후 Vercel SSO 로그인 페이지로 리디렉션되는 경우:**
+
+이 문제는 Supabase가 리디렉션 URL을 처리할 때 발생할 수 있습니다. 다음을 확인하세요:
+
+1. **Supabase 대시보드에서 Site URL 확인**
+   - Site URL이 정확한 프로덕션 URL로 설정되어 있는지 확인
+   - 예: `https://my-speaking-16835l739-pklabs2021s-projects.vercel.app/`
+   - **중요**: Site URL에 슬래시(`/`)를 포함해야 합니다
+
+2. **Redirect URLs 목록 확인**
+   - 다음 URL들이 정확히 추가되어 있는지 확인:
+     ```
+     http://localhost:5173/**
+     https://my-speaking-16835l739-pklabs2021s-projects.vercel.app/**
+     https://*-pklabs2021s-projects.vercel.app/**
+     ```
+   - **중요**: URL 끝에 `/**` 와일드카드를 포함해야 합니다
+
+3. **이메일 템플릿 확인**
+   - Supabase 대시보드 → Authentication → Email Templates
+   - "Confirm signup" 템플릿 확인
+   - 링크가 `{{ .RedirectTo }}` 또는 `{{ .SiteURL }}/auth/confirm` 형식인지 확인
+   - `{{ .SiteURL }}`만 사용하는 경우 `{{ .RedirectTo }}`로 변경 권장
+
+4. **브라우저 콘솔 확인**
+   - 회원가입 시 콘솔에 "Email redirect URL: ..." 로그 확인
+   - 리디렉션 URL이 올바른 절대 URL인지 확인
+
+**"Invalid redirect URL" 오류가 발생하는 경우:**
+1. Supabase Redirect URLs 목록에 해당 URL이 추가되어 있는지 확인
+2. URL 형식이 정확한지 확인 (http/https, 슬래시 포함 여부)
+3. 와일드카드 패턴이 올바른지 확인
+4. Site URL과 Redirect URLs가 일치하는지 확인
+
+---
+
 ## 도움이 필요하신가요?
 
 문제가 계속되면:
@@ -254,4 +388,5 @@ cat .env
 2. 브라우저 콘솔 확인
 3. `.env` 파일 내용 재확인
 4. 서버 재시작 확인
+5. Supabase 대시보드에서 URL 설정 확인
 

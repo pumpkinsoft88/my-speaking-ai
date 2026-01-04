@@ -1,3 +1,4 @@
+<!-- /src/lib/components/PracticeSettings.svelte -->
 <script>
 	import { getRecommendedContent, getRandomContent } from '$lib/data/practiceContent.js';
 	
@@ -42,23 +43,23 @@
 
 <div class="space-y-6">
 	<!-- 레벨 선택 -->
-	<div>
-		<label class="mb-3 block text-sm font-bold text-slate-700">📊 학습 레벨</label>
+	<fieldset>
+		<legend class="mb-3 block text-sm sm:text-base font-bold text-slate-700">📊 학습 레벨</legend>
 		<div class="grid grid-cols-3 gap-3">
 			{#each levels as lvl}
 				<button
 					type="button"
 					disabled={disabled}
-					class="group relative flex flex-col items-center gap-2 rounded-2xl border-2 p-4 transition-all hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 {level === lvl.value
+					class="group relative flex flex-col items-center gap-2 rounded-2xl border-2 p-3 sm:p-4 transition-all hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 {level === lvl.value
 						? 'border-purple-500 bg-gradient-to-br from-purple-50 to-pink-50 shadow-md'
 						: 'border-slate-200 bg-white hover:border-purple-300'}"
 					on:click={() => (level = lvl.value)}
 				>
-					<span class="text-3xl">{lvl.icon}</span>
-					<span class="text-sm font-bold {level === lvl.value ? 'text-purple-700' : 'text-slate-700'}">
+					<span class="text-2xl sm:text-3xl">{lvl.icon}</span>
+					<span class="text-xs sm:text-sm font-bold {level === lvl.value ? 'text-purple-700' : 'text-slate-700'}">
 						{lvl.label}
 					</span>
-					<span class="text-xs text-slate-500">{lvl.description}</span>
+					<span class="text-xs text-slate-500 text-center px-1">{lvl.description}</span>
 					{#if level === lvl.value}
 						<div class="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
 							<svg class="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,24 +70,24 @@
 				</button>
 			{/each}
 		</div>
-	</div>
+	</fieldset>
 	
 	<!-- 표시 모드 선택 -->
-	<div>
-		<label class="mb-3 block text-sm font-bold text-slate-700">👁️ 표시 모드</label>
+	<fieldset>
+		<legend class="mb-3 block text-sm sm:text-base font-bold text-slate-700">👁️ 표시 모드</legend>
 		<div class="grid grid-cols-2 gap-3">
 			{#each displayModes as mode}
 				<button
 					type="button"
 					disabled={disabled}
-					class="group relative flex items-center gap-3 rounded-2xl border-2 p-4 transition-all hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 {displayMode === mode.value
+					class="group relative flex items-center gap-2 sm:gap-3 rounded-2xl border-2 p-3 sm:p-4 transition-all hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 {displayMode === mode.value
 						? 'border-indigo-500 bg-gradient-to-br from-indigo-50 to-blue-50 shadow-md'
 						: 'border-slate-200 bg-white hover:border-indigo-300'}"
 					on:click={() => (displayMode = mode.value)}
 				>
-					<span class="text-2xl">{mode.icon}</span>
-					<div class="flex-1 text-left">
-						<div class="text-sm font-bold {displayMode === mode.value ? 'text-indigo-700' : 'text-slate-700'}">
+					<span class="text-xl sm:text-2xl flex-shrink-0">{mode.icon}</span>
+					<div class="flex-1 text-left min-w-0">
+						<div class="text-xs sm:text-sm font-bold {displayMode === mode.value ? 'text-indigo-700' : 'text-slate-700'}">
 							{mode.label}
 						</div>
 						<div class="text-xs text-slate-500">{mode.description}</div>
@@ -101,17 +102,17 @@
 				</button>
 			{/each}
 		</div>
-	</div>
+	</fieldset>
 	
 	<!-- 연습 모드 선택 -->
-	<div>
-		<label class="mb-3 block text-sm font-bold text-slate-700">🎯 연습 모드</label>
+	<fieldset>
+		<legend class="mb-3 block text-sm sm:text-base font-bold text-slate-700">🎯 연습 모드</legend>
 		<div class="grid grid-cols-3 gap-3">
 			{#each practiceModes as mode}
 				<button
 					type="button"
 					disabled={disabled}
-					class="group relative flex flex-col items-center gap-2 rounded-2xl border-2 p-4 transition-all hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 {practiceMode === mode.value
+					class="group relative flex flex-col items-center gap-2 rounded-2xl border-2 p-3 sm:p-4 transition-all hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 {practiceMode === mode.value
 						? 'border-emerald-500 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-md'
 						: 'border-slate-200 bg-white hover:border-emerald-300'}"
 					on:click={() => {
@@ -121,11 +122,11 @@
 						}
 					}}
 				>
-					<span class="text-3xl">{mode.icon}</span>
-					<span class="text-sm font-bold {practiceMode === mode.value ? 'text-emerald-700' : 'text-slate-700'}">
+					<span class="text-2xl sm:text-3xl">{mode.icon}</span>
+					<span class="text-xs sm:text-sm font-bold {practiceMode === mode.value ? 'text-emerald-700' : 'text-slate-700'}">
 						{mode.label}
 					</span>
-					<span class="text-xs text-slate-500">{mode.description}</span>
+					<span class="text-xs text-slate-500 text-center px-1">{mode.description}</span>
 					{#if practiceMode === mode.value}
 						<div class="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
 							<svg class="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -136,22 +137,23 @@
 				</button>
 			{/each}
 		</div>
-	</div>
+	</fieldset>
 	
 	<!-- 연습 내용 입력 (단어/문장 연습 모드일 때) -->
 	{#if showCustomInput}
 		<div>
-			<label class="mb-2 block text-sm font-bold text-slate-700">
+			<label for="practice-content-input" class="mb-2 block text-sm sm:text-base font-bold text-slate-700">
 				{practiceMode === 'vocabulary' ? '📚 연습할 단어 입력' : '📝 연습할 문장 입력'}
 			</label>
 			<input
+				id="practice-content-input"
 				type="text"
 				bind:value={practiceContent}
 				disabled={disabled}
 				placeholder={practiceMode === 'vocabulary' ? '예: 你好, 谢谢, 再见' : '예: 今天天气很好。'}
-				class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+				class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-2.5 sm:py-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
 			/>
-			<p class="mt-2 text-xs text-slate-500">
+			<p class="mt-2 text-xs sm:text-sm text-slate-500">
 				{practiceMode === 'vocabulary'
 					? '연습하고 싶은 단어를 입력하세요. 여러 단어는 쉼표로 구분할 수 있습니다.'
 					: '연습하고 싶은 문장을 입력하세요. AI 튜터가 이 문장을 사용하여 대화를 이끌어갑니다.'}

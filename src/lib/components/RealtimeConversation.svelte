@@ -1,3 +1,4 @@
+<!-- /src/lib/components/RealtimeConversation.svelte -->
 <script>
 	import { onMount, onDestroy } from 'svelte';
 	import { RealtimeClient } from '$lib/realtime/realtimeClient.js';
@@ -289,17 +290,18 @@
 	});
 </script>
 
-<div class="space-y-8">
+<div class="space-y-6">
 	<!-- 연습 설정 패널 -->
 	{#if showSettings && !isConnected}
-		<div class="rounded-3xl border-2 border-purple-200/50 bg-gradient-to-br from-white/80 to-purple-50/40 backdrop-blur-sm p-6 shadow-xl">
-			<div class="mb-4 flex items-center justify-between">
-				<h2 class="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+		<div class="mx-auto w-full max-w-2xl rounded-3xl border-2 border-purple-200/50 bg-gradient-to-br from-white/80 to-purple-50/40 backdrop-blur-sm p-4 sm:p-6 lg:p-8 shadow-xl">
+			<div class="mb-4 sm:mb-6 flex items-center justify-between">
+				<h2 class="text-lg sm:text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
 					⚙️ 학습 설정
 				</h2>
 				<button
 					on:click={() => (showSettings = false)}
 					class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+					aria-label="설정 닫기"
 				>
 					<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -311,14 +313,14 @@
 	{:else if !isConnected}
 		<button
 			on:click={() => (showSettings = true)}
-			class="w-full rounded-2xl border-2 border-dashed border-purple-300/50 bg-gradient-to-br from-white/60 to-purple-50/40 backdrop-blur-sm p-4 text-sm font-semibold text-purple-700 hover:border-purple-400 hover:shadow-lg transition-all"
+			class="mx-auto w-full max-w-2xl rounded-3xl border-2 border-dashed border-purple-300/50 bg-gradient-to-br from-white/60 to-purple-50/40 backdrop-blur-sm p-4 sm:p-6 text-xs sm:text-sm font-semibold text-purple-700 hover:border-purple-400 hover:shadow-lg transition-all"
 		>
 			⚙️ 학습 설정 보기
 		</button>
 	{/if}
 	
 	<!-- 연결 상태 및 제어 -->
-	<div class="flex flex-col items-center gap-6">
+	<div class="mx-auto w-full max-w-2xl flex flex-col items-center gap-6">
 		<!-- 상태 표시 -->
 		<div class="flex flex-col items-center gap-4">
 			<div class="flex items-center gap-3">
@@ -329,7 +331,7 @@
 							? 'animate-pulse bg-gradient-to-r from-blue-400 to-indigo-400 ring-4 ring-blue-400/30 shadow-lg shadow-blue-400/50'
 							: 'bg-gradient-to-r from-slate-300 to-slate-400'}"
 				></div>
-				<span class="text-xl font-bold bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent">
+				<span class="text-base sm:text-lg lg:text-xl font-bold bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent">
 					{isConnected
 						? t.status.connected
 						: isConnecting
@@ -359,7 +361,7 @@
 
 		<!-- 대화 시작/종료 버튼 -->
 		<button
-			class="group relative flex items-center justify-center gap-3 rounded-3xl px-10 py-6 text-xl font-extrabold text-white shadow-2xl transition-all duration-300 hover:scale-105 hover:shadow-3xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 {isConnected
+			class="group relative flex items-center justify-center gap-2 sm:gap-3 rounded-3xl px-6 sm:px-8 lg:px-10 py-4 sm:py-5 lg:py-6 text-base sm:text-lg lg:text-xl font-extrabold text-white shadow-2xl transition-all duration-300 hover:scale-105 hover:shadow-3xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 {isConnected
 				? 'bg-gradient-to-r from-red-500 via-pink-500 to-rose-500 shadow-red-500/50 hover:shadow-red-500/70'
 				: 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-purple-500/50 hover:shadow-purple-500/70'}"
 			on:click={isConnected ? stopConversation : startConversation}
@@ -368,7 +370,7 @@
 		>
 			{#if isConnected}
 				<svg
-					class="h-6 w-6 transition-transform group-hover:rotate-90"
+					class="h-5 w-5 sm:h-6 sm:w-6 transition-transform group-hover:rotate-90"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -383,7 +385,7 @@
 				<span>{t.buttons.stop}</span>
 			{:else}
 				<svg
-					class="h-6 w-6 transition-transform group-hover:scale-110"
+					class="h-5 w-5 sm:h-6 sm:w-6 transition-transform group-hover:scale-110"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -405,36 +407,39 @@
 	</div>
 
 	<!-- 과금 상태 표시 -->
-	<BillingStatus
-		{isConnected}
-		{isConnecting}
-		{isDisconnecting}
-		{disconnectVerification}
-		{networkActivity}
-	/>
+	<div class="mx-auto w-full max-w-2xl">
+		<BillingStatus
+			{isConnected}
+			{isConnecting}
+			{isDisconnecting}
+			{disconnectVerification}
+			{networkActivity}
+		/>
+	</div>
 
 	<!-- 대화 기록 -->
-	<ConversationHistory 
-		messages={conversationHistory} 
-		{currentLanguage} 
-		{displayMode}
-		{level}
-	/>
+	<div class="mx-auto w-full max-w-2xl">
+		<ConversationHistory 
+			messages={conversationHistory} 
+			{currentLanguage} 
+			{displayMode}
+		/>
+	</div>
 
 	<!-- 안내 메시지 -->
 	{#if !isConnected && !isConnecting}
 		<div
-			class="mx-auto max-w-lg rounded-3xl border-2 border-dashed border-purple-200/50 bg-gradient-to-br from-white/60 via-purple-50/40 to-pink-50/40 backdrop-blur-sm p-10 text-center shadow-xl"
+			class="mx-auto w-full max-w-2xl rounded-3xl border-2 border-dashed border-purple-200/50 bg-gradient-to-br from-white/60 via-purple-50/40 to-pink-50/40 backdrop-blur-sm p-6 sm:p-8 text-center shadow-xl"
 		>
-			<div class="mb-5 text-6xl animate-bounce">🎤</div>
-			<h3 class="mb-3 text-2xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{t.tips.title}</h3>
-			<p class="mb-6 text-slate-600 text-lg leading-relaxed">
+			<div class="mb-4 sm:mb-5 text-4xl sm:text-5xl lg:text-6xl animate-bounce">🎤</div>
+			<h3 class="mb-3 text-xl sm:text-2xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{t.tips.title}</h3>
+			<p class="mb-4 sm:mb-6 text-slate-600 text-sm sm:text-base lg:text-lg leading-relaxed">
 				{t.tips.description}
 			</p>
-			<div class="flex flex-wrap justify-center gap-3">
-				<span class="rounded-full bg-gradient-to-r from-indigo-400 to-purple-400 px-4 py-2 text-sm font-bold text-white shadow-md">{t.features.natural}</span>
-				<span class="rounded-full bg-gradient-to-r from-purple-400 to-pink-400 px-4 py-2 text-sm font-bold text-white shadow-md">{t.features.feedback}</span>
-				<span class="rounded-full bg-gradient-to-r from-pink-400 to-rose-400 px-4 py-2 text-sm font-bold text-white shadow-md">{t.features.lowLatency}</span>
+			<div class="flex flex-wrap justify-center gap-2 sm:gap-3">
+				<span class="rounded-full bg-gradient-to-r from-indigo-400 to-purple-400 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-white shadow-md">{t.features.natural}</span>
+				<span class="rounded-full bg-gradient-to-r from-purple-400 to-pink-400 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-white shadow-md">{t.features.feedback}</span>
+				<span class="rounded-full bg-gradient-to-r from-pink-400 to-rose-400 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-white shadow-md">{t.features.lowLatency}</span>
 			</div>
 		</div>
 	{/if}
@@ -442,9 +447,9 @@
 	<!-- 대화 중 안내 -->
 	{#if isConnected}
 		<div
-			class="mx-auto max-w-md rounded-2xl border border-emerald-300/50 bg-gradient-to-br from-emerald-50/80 to-teal-50/80 backdrop-blur-sm p-5 text-center shadow-lg"
+			class="mx-auto w-full max-w-2xl rounded-3xl border-2 border-emerald-300/50 bg-gradient-to-br from-emerald-50/80 to-teal-50/80 backdrop-blur-sm p-4 sm:p-6 lg:p-8 text-center shadow-xl"
 		>
-			<p class="font-bold text-emerald-800 text-sm">{t.tips.speaking}</p>
+			<p class="font-bold text-emerald-800 text-xs sm:text-sm">{t.tips.speaking}</p>
 			<p class="mt-2 text-xs text-emerald-700 leading-relaxed">{t.tips.feedback}</p>
 		</div>
 	{/if}
