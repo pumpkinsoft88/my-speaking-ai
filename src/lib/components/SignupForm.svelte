@@ -58,8 +58,22 @@
 
 		if (authError) {
 			// Supabase 에러 메시지 처리
+			console.error('❌ Sign up error:', authError);
+			
 			if (authError.message.includes('already registered') || authError.message.includes('already exists')) {
 				error = t.userExists;
+			} else if (authError.message.includes('email') && (authError.message.includes('send') || authError.message.includes('confirmation'))) {
+				// SMTP 관련 오류
+				error = '이메일 전송에 실패했습니다. 네이버 메일에서 IMAP/SMTP 사용 설정을 확인해주세요.';
+				console.error('📧 SMTP Error:', authError.message);
+				console.error('💡 해결 방법: 네이버 메일 → 환경설정 → POP3/IMAP 설정 → "IMAP/SMTP 사용함" 선택');
+			} else if (authError.message.includes('Error sending confirmation email')) {
+				// 확인 이메일 전송 오류
+				error = '이메일 전송에 실패했습니다. SMTP 설정과 네이버 메일 IMAP/SMTP 사용 설정을 확인해주세요.';
+				console.error('📧 Confirmation Email Error:', authError.message);
+				console.error('💡 해결 방법:');
+				console.error('   1. 네이버 메일 → 환경설정 → POP3/IMAP 설정 → "IMAP/SMTP 사용함" 선택');
+				console.error('   2. Supabase SMTP 설정 확인 (smtp.naver.com, 포트 587)');
 			} else {
 				error = authError.message || t.error;
 			}
