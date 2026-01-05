@@ -22,9 +22,9 @@ export const supabase = createClient(PUBLIC_SUPABASE_DB_URL, PUBLIC_SUPABASE_DB_
 		// 세션 지속성 활성화
 		persistSession: true,
 		// 자동 토큰 새로고침
-		autoRefreshToken: true,
-		// PKCE 플로우 사용 (보안 강화)
-		flowType: 'pkce'
+		autoRefreshToken: true
+		// PKCE 플로우 비활성화 (SvelteKit SSR 환경에서 code verifier 문제 해결)
+		// flowType: 'pkce' // 주석 처리 - SSR 환경에서는 @supabase/ssr 필요
 	}
 });
 

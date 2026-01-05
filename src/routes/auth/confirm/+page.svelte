@@ -107,32 +107,42 @@
 				}
 			}
 
-			// 3. code 파라미터가 있는 경우 (PKCE 플로우)
+			// 3. code 파라미터가 있는 경우 (PKCE 플로우 또는 일반 인증 코드)
 			if (code) {
-				console.log('🔐 Exchanging code for session (PKCE flow)...');
+				console.log('🔐 Exchanging code for session...');
 				
-				const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+				try {
+					const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
-				if (exchangeError) {
-					console.error('❌ Code exchange error:', exchangeError);
-					error = exchangeError.message || t.error || '인증 코드 교환에 실패했습니다. 링크가 만료되었거나 이미 사용되었을 수 있습니다.';
-					loading = false;
-					return;
-				}
+					if (exchangeError) {
+						// PKCE code verifier 오류인 경우, 다른 방법 시도
+						if (exchangeError.message?.includes('code verifier')) {
+							console.warn('⚠️ PKCE code verifier not found, trying alternative method...');
+							// code를 token으로 변환 시도하거나, 세션 확인
+							// 일단 세션 확인으로 넘어감
+						} else {
+							console.error('❌ Code exchange error:', exchangeError);
+							error = exchangeError.message || t.error || '인증 코드 교환에 실패했습니다. 링크가 만료되었거나 이미 사용되었을 수 있습니다.';
+							loading = false;
+							return;
+						}
+					} else if (data?.user) {
+						console.log('✅ Code exchanged successfully, session created');
+						success = true;
+						authStore.set({
+							user: data.user,
+							session: data.session,
+							loading: false
+						});
 
-				if (data?.user) {
-					console.log('✅ Code exchanged successfully, session created');
-					success = true;
-					authStore.set({
-						user: data.user,
-						session: data.session,
-						loading: false
-					});
-
-					setTimeout(() => {
-						goto('/');
-					}, 2000);
-					return;
+						setTimeout(() => {
+							goto('/');
+						}, 2000);
+						return;
+					}
+				} catch (err) {
+					console.warn('⚠️ Code exchange failed, will try session check:', err);
+					// 계속 진행하여 세션 확인 시도
 				}
 			}
 
