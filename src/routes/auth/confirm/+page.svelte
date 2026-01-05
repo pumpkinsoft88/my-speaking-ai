@@ -19,6 +19,11 @@
 		if (!browser) return;
 
 		try {
+			// URL 쿼리 파라미터에서 토큰 정보 확인
+			const urlParams = new URLSearchParams(window.location.search);
+			const tokenHash = urlParams.get('token_hash');
+			const type = urlParams.get('type');
+
 			// URL 해시에서 에러 정보 확인
 			const hashParams = new URLSearchParams(window.location.hash.slice(1));
 			const errorCode = hashParams.get('error_code');
@@ -31,18 +36,54 @@
 				return;
 			}
 
-			// Supabase는 이메일 링크를 클릭하면 자동으로 세션을 설정합니다
-			// 세션을 확인하여 인증 상태를 업데이트합니다
+			// 토큰이 있는 경우 명시적으로 검증
+			if (tokenHash && type === 'email') {
+				console.log('🔐 Verifying email token...');
+				
+				const { data, error: verifyError } = await supabase.auth.verifyOtp({
+					token_hash: tokenHash,
+					type: 'email'
+				});
+
+				if (verifyError) {
+					console.error('❌ Token verification error:', verifyError);
+					error = verifyError.message || t.error || '이메일 인증에 실패했습니다. 링크가 만료되었거나 이미 사용되었을 수 있습니다.';
+					loading = false;
+					return;
+				}
+
+				if (data?.user) {
+					console.log('✅ Email verified successfully');
+					// 인증 성공
+					success = true;
+					authStore.set({
+						user: data.user,
+						session: data.session,
+						loading: false
+					});
+
+					// 2초 후 홈으로 리디렉트
+					setTimeout(() => {
+						goto('/');
+					}, 2000);
+					return;
+				}
+			}
+
+			// 토큰이 없는 경우 세션 확인 (이미 인증된 경우)
+			console.log('🔍 Checking existing session...');
 			const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 			
 			if (sessionError) {
+				console.error('❌ Session error:', sessionError);
 				error = sessionError.message || t.error || '세션을 확인할 수 없습니다.';
 				loading = false;
 				return;
 			}
 
 			if (session?.user) {
-				// 인증 성공
+				console.log('✅ Session found, user already authenticated');
+				// 이미 인증된 경우
 				success = true;
 				authStore.set({
 					user: session.user,
@@ -50,17 +91,17 @@
 					loading: false
 				});
 
-				// 2초 후 홈으로 리디렉트
 				setTimeout(() => {
 					goto('/');
 				}, 2000);
 			} else {
-				// 세션이 없는 경우 - 이미 만료되었거나 잘못된 링크일 수 있음
+				// 세션이 없고 토큰도 없는 경우
+				console.warn('⚠️ No session and no token found');
 				error = t.error || '인증 정보를 찾을 수 없습니다. 이메일 링크가 만료되었거나 이미 사용되었을 수 있습니다.';
 				loading = false;
 			}
 		} catch (err) {
-			console.error('Auth confirmation error:', err);
+			console.error('❌ Auth confirmation error:', err);
 			error = err.message || t.error || '인증 처리 중 오류가 발생했습니다.';
 			loading = false;
 		}
