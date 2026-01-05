@@ -213,7 +213,8 @@ export const translations = {
 			emailVerifying: 'Verifying email...',
 			pleaseWait: 'Please wait a moment.',
 			emailVerified: 'Email verified!',
-			emailVerifiedMessage: 'Your email has been verified. You will be redirected to the home page shortly.'
+			emailVerifiedMessage: 'Your email has been verified. You will be redirected to the home page shortly.',
+			emailVerifiedLoginMessage: 'Your email has been verified. Please log in.'
 		}
 	},
 	'korean': {
@@ -287,7 +288,8 @@ export const translations = {
 			emailVerifying: '이메일 인증 중...',
 			pleaseWait: '잠시만 기다려주세요.',
 			emailVerified: '이메일 인증 완료!',
-			emailVerifiedMessage: '이메일 인증이 완료되었습니다. 잠시 후 홈으로 이동합니다.'
+			emailVerifiedMessage: '이메일 인증이 완료되었습니다. 잠시 후 홈으로 이동합니다.',
+			emailVerifiedLoginMessage: '이메일 인증이 완료되었습니다. 로그인해주세요.'
 		}
 	}
 };

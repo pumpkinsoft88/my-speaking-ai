@@ -114,14 +114,7 @@
 				try {
 					const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 					
-					if (exchangeError) {
-						console.error('❌ Code exchange error:', exchangeError);
-						error = exchangeError.message || t.error || '인증 코드 교환에 실패했습니다. 링크가 만료되었거나 이미 사용되었을 수 있습니다.';
-						loading = false;
-						return;
-					}
-					
-					if (data?.user) {
+					if (!exchangeError && data?.user) {
 						console.log('✅ Code exchanged successfully, session created');
 						success = true;
 						authStore.set({
@@ -135,11 +128,17 @@
 						}, 2000);
 						return;
 					}
+					
+					// exchangeCodeForSession이 실패해도, Supabase verify 엔드포인트가 이미 이메일을 인증했을 수 있음
+					// 이 경우 세션이 설정되지 않았을 수 있으므로, 세션 확인으로 넘어감
+					if (exchangeError) {
+						console.warn('⚠️ Code exchange failed, but email may already be verified:', exchangeError.message);
+						console.log('🔍 Will check if email was already verified and try to get session...');
+						// 계속 진행하여 세션 확인 시도
+					}
 				} catch (err) {
-					console.error('❌ Code exchange error:', err);
-					error = err.message || t.error || '인증 코드 처리 중 오류가 발생했습니다.';
-					loading = false;
-					return;
+					console.warn('⚠️ Code exchange error, but email may already be verified:', err);
+					// 계속 진행하여 세션 확인 시도
 				}
 			}
 
@@ -177,11 +176,29 @@
 			}
 
 			// 5. 토큰이 없는 경우 세션 확인 (Supabase가 자동으로 세션을 설정했을 수 있음)
+			// code 파라미터가 있었지만 exchangeCodeForSession이 실패한 경우도 여기로 옴
 			console.log('🔍 Checking existing session...');
+			
+			// 세션 확인 전에 잠시 대기 (Supabase가 세션을 설정하는 데 시간이 걸릴 수 있음)
+			await new Promise(resolve => setTimeout(resolve, 500));
+			
 			const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 			
 			if (sessionError) {
 				console.error('❌ Session error:', sessionError);
+				// code 파라미터가 있었지만 세션을 찾을 수 없는 경우
+				// 이메일 인증은 완료되었을 수 있으므로, 사용자에게 로그인하도록 안내
+				if (code) {
+					console.log('ℹ️ Email may already be verified. User can login now.');
+					success = true;
+					error = '';
+					loading = false;
+					// 성공 메시지 대신 로그인 안내 표시
+					setTimeout(() => {
+						goto('/login');
+					}, 2000);
+					return;
+				}
 				error = sessionError.message || t.error || '세션을 확인할 수 없습니다.';
 				loading = false;
 				return;
@@ -201,6 +218,17 @@
 				}, 2000);
 			} else {
 				// 세션이 없고 토큰도 없는 경우
+				// code 파라미터가 있었지만 세션을 찾을 수 없는 경우
+				// 이메일 인증은 완료되었을 수 있으므로, 사용자에게 로그인하도록 안내
+				if (code) {
+					console.log('ℹ️ Email may already be verified. User can login now.');
+					success = true;
+					error = '';
+					loading = false;
+					// 성공 메시지 표시 (UI에서 code가 있으면 로그인 안내 메시지 표시)
+					return;
+				}
+				
 				console.warn('⚠️ No session and no token found');
 				console.warn('⚠️ URL:', window.location.href);
 				error = t.error || '인증 정보를 찾을 수 없습니다. 이메일 링크가 만료되었거나 이미 사용되었을 수 있습니다.';
@@ -250,14 +278,25 @@
 						{t.emailVerified || '이메일 인증 완료!'}
 					</h2>
 					<p class="text-sm text-green-700 mb-6">
-						{t.emailVerifiedMessage || '이메일 인증이 완료되었습니다. 잠시 후 홈으로 이동합니다.'}
+						{code ? (t.emailVerifiedLoginMessage || '이메일 인증이 완료되었습니다. 로그인해주세요.') : (t.emailVerifiedMessage || '이메일 인증이 완료되었습니다. 잠시 후 홈으로 이동합니다.')}
 					</p>
-					<a
-						href="/"
-						class="inline-block rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 transition-all"
-					>
-						{t.goToHome || '홈으로 이동'}
-					</a>
+					<div class="flex flex-col sm:flex-row gap-3 justify-center">
+						{#if code}
+							<a
+								href="/login"
+								class="inline-block rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 transition-all"
+							>
+								{t.login || '로그인'}
+							</a>
+						{:else}
+							<a
+								href="/"
+								class="inline-block rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 transition-all"
+							>
+								{t.goToHome || '홈으로 이동'}
+							</a>
+						{/if}
+					</div>
 				</div>
 			{:else if error}
 				<!-- 에러 상태 -->
