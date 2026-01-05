@@ -22,27 +22,33 @@
 			// URL 쿼리 파라미터에서 토큰 정보 확인
 			const urlParams = new URLSearchParams(window.location.search);
 			const tokenHash = urlParams.get('token_hash');
+			const token = urlParams.get('token'); // Supabase verify 엔드포인트에서 사용
 			const type = urlParams.get('type');
 
-			// URL 해시에서 에러 정보 확인
+			// URL 해시에서도 토큰 정보 확인 (Supabase가 해시에 정보를 넣을 수 있음)
 			const hashParams = new URLSearchParams(window.location.hash.slice(1));
+			const hashToken = hashParams.get('access_token');
+			const hashType = hashParams.get('type');
 			const errorCode = hashParams.get('error_code');
 			const errorDescription = hashParams.get('error_description');
 
+			console.log('🔍 URL params:', { tokenHash, token, type, hashToken, hashType });
+
 			// 에러가 있는 경우 처리
 			if (errorCode) {
+				console.error('❌ Error from URL hash:', errorCode, errorDescription);
 				error = errorDescription || t.error || '인증 중 오류가 발생했습니다.';
 				loading = false;
 				return;
 			}
 
-			// 토큰이 있는 경우 명시적으로 검증
-			if (tokenHash && type === 'email') {
-				console.log('🔐 Verifying email token...');
+			// 1. token_hash가 있는 경우 (이메일 템플릿에서 직접 링크)
+			if (tokenHash && (type === 'email' || type === 'signup')) {
+				console.log('🔐 Verifying email token with token_hash...');
 				
 				const { data, error: verifyError } = await supabase.auth.verifyOtp({
 					token_hash: tokenHash,
-					type: 'email'
+					type: type === 'signup' ? 'email' : type
 				});
 
 				if (verifyError) {
@@ -53,8 +59,7 @@
 				}
 
 				if (data?.user) {
-					console.log('✅ Email verified successfully');
-					// 인증 성공
+					console.log('✅ Email verified successfully with token_hash');
 					success = true;
 					authStore.set({
 						user: data.user,
@@ -62,7 +67,6 @@
 						loading: false
 					});
 
-					// 2초 후 홈으로 리디렉트
 					setTimeout(() => {
 						goto('/');
 					}, 2000);
@@ -70,7 +74,72 @@
 				}
 			}
 
-			// 토큰이 없는 경우 세션 확인 (이미 인증된 경우)
+			// 2. token이 있는 경우 (Supabase verify 엔드포인트에서 리디렉션)
+			if (token && (type === 'signup' || type === 'email')) {
+				console.log('🔐 Verifying email token with token...');
+				
+				const { data, error: verifyError } = await supabase.auth.verifyOtp({
+					token: token,
+					type: type === 'signup' ? 'email' : type
+				});
+
+				if (verifyError) {
+					console.error('❌ Token verification error:', verifyError);
+					error = verifyError.message || t.error || '이메일 인증에 실패했습니다. 링크가 만료되었거나 이미 사용되었을 수 있습니다.';
+					loading = false;
+					return;
+				}
+
+				if (data?.user) {
+					console.log('✅ Email verified successfully with token');
+					success = true;
+					authStore.set({
+						user: data.user,
+						session: data.session,
+						loading: false
+					});
+
+					setTimeout(() => {
+						goto('/');
+					}, 2000);
+					return;
+				}
+			}
+
+			// 3. URL 해시에 access_token이 있는 경우
+			if (hashToken && (hashType === 'signup' || hashType === 'email')) {
+				console.log('🔐 Using access_token from URL hash...');
+				
+				// access_token을 사용하여 세션 설정
+				const { data, error: signInError } = await supabase.auth.setSession({
+					access_token: hashToken,
+					refresh_token: hashParams.get('refresh_token') || ''
+				});
+
+				if (signInError) {
+					console.error('❌ Session setting error:', signInError);
+					error = signInError.message || t.error || '세션 설정에 실패했습니다.';
+					loading = false;
+					return;
+				}
+
+				if (data?.user) {
+					console.log('✅ Session set successfully from access_token');
+					success = true;
+					authStore.set({
+						user: data.user,
+						session: data.session,
+						loading: false
+					});
+
+					setTimeout(() => {
+						goto('/');
+					}, 2000);
+					return;
+				}
+			}
+
+			// 4. 토큰이 없는 경우 세션 확인 (Supabase가 자동으로 세션을 설정했을 수 있음)
 			console.log('🔍 Checking existing session...');
 			const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 			
@@ -83,7 +152,6 @@
 
 			if (session?.user) {
 				console.log('✅ Session found, user already authenticated');
-				// 이미 인증된 경우
 				success = true;
 				authStore.set({
 					user: session.user,
@@ -97,6 +165,7 @@
 			} else {
 				// 세션이 없고 토큰도 없는 경우
 				console.warn('⚠️ No session and no token found');
+				console.warn('⚠️ URL:', window.location.href);
 				error = t.error || '인증 정보를 찾을 수 없습니다. 이메일 링크가 만료되었거나 이미 사용되었을 수 있습니다.';
 				loading = false;
 			}
