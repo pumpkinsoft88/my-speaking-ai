@@ -23,6 +23,7 @@
 			const urlParams = new URLSearchParams(window.location.search);
 			const tokenHash = urlParams.get('token_hash');
 			const token = urlParams.get('token'); // Supabase verify 엔드포인트에서 사용
+			const code = urlParams.get('code'); // PKCE 플로우에서 사용
 			const type = urlParams.get('type');
 
 			// URL 해시에서도 토큰 정보 확인 (Supabase가 해시에 정보를 넣을 수 있음)
@@ -32,7 +33,7 @@
 			const errorCode = hashParams.get('error_code');
 			const errorDescription = hashParams.get('error_description');
 
-			console.log('🔍 URL params:', { tokenHash, token, type, hashToken, hashType });
+			console.log('🔍 URL params:', { tokenHash, token, code, type, hashToken, hashType });
 
 			// 에러가 있는 경우 처리
 			if (errorCode) {
@@ -106,7 +107,36 @@
 				}
 			}
 
-			// 3. URL 해시에 access_token이 있는 경우
+			// 3. code 파라미터가 있는 경우 (PKCE 플로우)
+			if (code) {
+				console.log('🔐 Exchanging code for session (PKCE flow)...');
+				
+				const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+
+				if (exchangeError) {
+					console.error('❌ Code exchange error:', exchangeError);
+					error = exchangeError.message || t.error || '인증 코드 교환에 실패했습니다. 링크가 만료되었거나 이미 사용되었을 수 있습니다.';
+					loading = false;
+					return;
+				}
+
+				if (data?.user) {
+					console.log('✅ Code exchanged successfully, session created');
+					success = true;
+					authStore.set({
+						user: data.user,
+						session: data.session,
+						loading: false
+					});
+
+					setTimeout(() => {
+						goto('/');
+					}, 2000);
+					return;
+				}
+			}
+
+			// 4. URL 해시에 access_token이 있는 경우
 			if (hashToken && (hashType === 'signup' || hashType === 'email')) {
 				console.log('🔐 Using access_token from URL hash...');
 				
@@ -139,7 +169,7 @@
 				}
 			}
 
-			// 4. 토큰이 없는 경우 세션 확인 (Supabase가 자동으로 세션을 설정했을 수 있음)
+			// 5. 토큰이 없는 경우 세션 확인 (Supabase가 자동으로 세션을 설정했을 수 있음)
 			console.log('🔍 Checking existing session...');
 			const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 			
