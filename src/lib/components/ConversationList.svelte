@@ -14,11 +14,7 @@
 		loadConversations();
 	}
 
-	let t = translations[currentLanguage];
-	
-	$: {
-		t = translations[currentLanguage];
-	}
+	let t = $derived(translations[currentLanguage]);
 
 	let conversations = [];
 	let loading = true;

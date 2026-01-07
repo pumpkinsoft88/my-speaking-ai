@@ -18,35 +18,35 @@
 	let t = $derived(translations[currentLanguage]);
 
 	// 연습 설정
-	let level = 'beginner'; // 'beginner', 'intermediate', 'advanced'
-	let displayMode = 'dual'; // 'dual', 'chinese-only'
-	let practiceMode = 'free'; // 'free', 'vocabulary', 'sentence'
-	let practiceContent = ''; // 연습할 단어나 문장
-	let showSettings = true; // 설정 패널 표시 여부
+	let level = $state('beginner'); // 'beginner', 'intermediate', 'advanced'
+	let displayMode = $state('dual'); // 'dual', 'chinese-only'
+	let practiceMode = $state('free'); // 'free', 'vocabulary', 'sentence'
+	let practiceContent = $state(''); // 연습할 단어나 문장
+	let showSettings = $state(true); // 설정 패널 표시 여부
 
-	let isConnected = false;
-	let isConnecting = false;
-		let isDisconnecting = false;
-		let conversationHistory = [];
-		let realtimeClient = null;
-		let isSaving = false; // 대화 저장 중 플래그
-		let saveSuccess = false; // 저장 성공 플래그
-		let wasConnectedBeforeUnmount = false; // 언마운트 전 연결 상태
-	let isSpeaking = false; // 사용자가 말하고 있는지
-	let isListening = false; // AI가 말하고 있는지
-	let disconnectVerification = null; // 종료 검증 결과
-	let networkActivity = null; // 네트워크 활동 상태
-	let activityCheckInterval = null; // 네트워크 활동 체크 인터벌
+	let isConnected = $state(false);
+	let isConnecting = $state(false);
+	let isDisconnecting = $state(false);
+	let conversationHistory = $state([]);
+	let realtimeClient = null; // 클라이언트 인스턴스는 $state 불필요
+	let isSaving = $state(false); // 대화 저장 중 플래그
+	let saveSuccess = $state(false); // 저장 성공 플래그
+	let wasConnectedBeforeUnmount = false; // 언마운트 전 연결 상태 (일반 변수)
+	let isSpeaking = $state(false); // 사용자가 말하고 있는지
+	let isListening = $state(false); // AI가 말하고 있는지
+	let disconnectVerification = $state(null); // 종료 검증 결과
+	let networkActivity = $state(null); // 네트워크 활동 상태
+	let activityCheckInterval = null; // 인터벌 ID는 일반 변수
 	
 	// 디버깅 정보
-	let debugInfo = {
+	let debugInfo = $state({
 		showDebug: false,
 		lastRequest: null,
 		lastResponse: null,
 		lastError: null,
 		requestTime: null,
 		responseTime: null
-	};
+	});
 
 	async function startConversation() {
 		if (isConnecting || isConnected) return;
@@ -154,7 +154,7 @@
 			realtimeClient.on('disconnected', (verification) => {
 				isConnected = false;
 				isDisconnecting = false;
-				conversationHistory = [];
+				// conversationHistory는 저장 완료 후에 초기화하므로 여기서는 초기화하지 않음
 				isSpeaking = false;
 				isListening = false;
 				disconnectVerification = verification;
@@ -447,14 +447,28 @@
 			disconnectVerification = verification;
 			console.log('✅ [UI] Disconnect completed, verification:', verification);
 			
-			// 대화 저장 (메시지가 있는 경우에만)
-			if (conversationHistory.length > 0) {
-				await saveCurrentConversation();
+			// 대화 저장 (메시지가 있는 경우에만) - 저장 완료 후 히스토리 초기화
+			const historyToSave = [...conversationHistory]; // 복사본 생성
+			if (historyToSave.length > 0) {
+				console.log('💾 대화 저장 시작 - 메시지 개수:', historyToSave.length);
+				await saveCurrentConversation(historyToSave);
+			} else {
+				console.log('⚠️ 저장할 대화가 없습니다.');
 			}
 		} catch (err) {
 			console.error('❌ [UI] Error during disconnect:', err);
+			// 에러가 발생해도 저장 시도
+			const historyToSave = [...conversationHistory];
+			if (historyToSave.length > 0) {
+				console.log('💾 에러 발생 후 대화 저장 시도 - 메시지 개수:', historyToSave.length);
+				try {
+					await saveCurrentConversation(historyToSave);
+				} catch (saveErr) {
+					console.error('❌ 대화 저장 실패:', saveErr);
+				}
+			}
 		} finally {
-			// 클라이언트 정리 (항상 실행)
+			// 저장 완료 후 클라이언트 정리 (항상 실행)
 			realtimeClient = null;
 			conversationHistory = [];
 			
@@ -472,23 +486,27 @@
 
 	/**
 	 * 현재 대화를 데이터베이스에 저장
+	 * @param {Array} messagesToSave - 저장할 메시지 배열 (선택사항, 없으면 conversationHistory 사용)
 	 */
-	async function saveCurrentConversation() {
+	async function saveCurrentConversation(messagesToSave = null) {
 		if (isSaving) {
 			console.log('⚠️ 이미 저장 중입니다.');
 			return;
 		}
 		
-		if (conversationHistory.length === 0) {
+		const messages = messagesToSave || conversationHistory;
+		
+		if (!messages || messages.length === 0) {
 			console.log('⚠️ 저장할 대화가 없습니다.');
 			return;
 		}
 		
 		console.log('💾 대화 저장 시작...', {
-			messageCount: conversationHistory.length,
+			messageCount: messages.length,
 			language: currentLanguage,
 			level: level,
-			practiceMode: practiceMode
+			practiceMode: practiceMode,
+			messages: messages // 디버깅용
 		});
 		
 		isSaving = true;
@@ -496,7 +514,7 @@
 		
 		try {
 			const { data, error } = await saveConversation({
-				messages: conversationHistory,
+				messages: messages,
 				language: currentLanguage,
 				level: level,
 				practiceMode: practiceMode,
@@ -577,7 +595,7 @@
 					⚙️ 학습 설정
 				</h2>
 				<button
-					on:click={() => (showSettings = false)}
+					onclick={() => (showSettings = false)}
 					class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
 					aria-label="설정 닫기"
 				>
@@ -590,7 +608,7 @@
 		</div>
 	{:else if !isConnected}
 		<button
-			on:click={() => (showSettings = true)}
+			onclick={() => (showSettings = true)}
 			class="mx-auto w-full max-w-2xl rounded-3xl border-2 border-dashed border-purple-300/50 bg-gradient-to-br from-white/60 to-purple-50/40 backdrop-blur-sm p-4 sm:p-6 text-xs sm:text-sm font-semibold text-purple-700 hover:border-purple-400 hover:shadow-lg transition-all"
 		>
 			⚙️ 학습 설정 보기
@@ -642,7 +660,7 @@
 			class="group relative flex items-center justify-center gap-2 sm:gap-3 rounded-3xl px-6 sm:px-8 lg:px-10 py-4 sm:py-5 lg:py-6 text-base sm:text-lg lg:text-xl font-extrabold text-white shadow-2xl transition-all duration-300 hover:scale-105 hover:shadow-3xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 {isConnected
 				? 'bg-gradient-to-r from-red-500 via-pink-500 to-rose-500 shadow-red-500/50 hover:shadow-red-500/70'
 				: 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-purple-500/50 hover:shadow-purple-500/70'}"
-			on:click={isConnected ? stopConversation : startConversation}
+			onclick={isConnected ? stopConversation : startConversation}
 			disabled={isConnecting || isDisconnecting}
 			aria-label={isConnected ? t.buttons.stop : t.buttons.start}
 		>
@@ -758,7 +776,7 @@
 	<div class="mx-auto max-w-4xl">
 		<button
 			class="mx-auto flex items-center gap-2 rounded-xl border-2 border-purple-200/50 bg-gradient-to-r from-white/60 to-purple-50/40 backdrop-blur-sm px-4 py-2.5 text-xs font-bold text-slate-700 hover:scale-105 hover:border-purple-300 hover:shadow-lg transition-all"
-			on:click={toggleDebug}
+			onclick={toggleDebug}
 		>
 			<svg
 				class="h-4 w-4"
@@ -784,7 +802,7 @@
 					<h4 class="text-sm font-extrabold bg-gradient-to-r from-yellow-400 to-pink-400 bg-clip-text text-transparent">🔍 디버깅 정보</h4>
 					<button
 						class="rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 text-xs font-bold text-white shadow-md hover:scale-105 hover:shadow-lg transition-all"
-						on:click={() => {
+						onclick={() => {
 							debugInfo = {
 								showDebug: true,
 								lastRequest: null,

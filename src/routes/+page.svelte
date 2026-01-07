@@ -4,6 +4,7 @@
 	import LanguageSelector from '$lib/components/LanguageSelector.svelte';
 	import ConversationList from '$lib/components/ConversationList.svelte';
 	import ConversationDetail from '$lib/components/ConversationDetail.svelte';
+	import RecentConversations from '$lib/components/RecentConversations.svelte';
 	import { translations } from '$lib/i18n/translations.js';
 	import { authStore, signOut } from '$lib/stores/auth.js';
 	import { goto } from '$app/navigation';
@@ -17,6 +18,7 @@
 	let activeTab = $state('conversation'); // 'conversation' or 'history'
 	let selectedConversationId = $state(null);
 	let conversationListRef = $state(null); // ConversationList 컴포넌트 참조
+	let recentConversationsRef = $state(null); // RecentConversations 컴포넌트 참조
 
 	function handleError(message) {
 		error = message;
@@ -38,8 +40,22 @@
 		if (conversationListRef) {
 			conversationListRef.refresh();
 		}
+		// 최근 대화 목록도 새로고침
+		if (recentConversationsRef) {
+			recentConversationsRef.refresh();
+		}
 		// 대화 기록 탭으로 자동 전환 (선택사항)
 		// activeTab = 'history';
+	}
+
+	function handleSelectRecentConversation(conversationId) {
+		if (conversationId === 'all') {
+			// 전체 보기 클릭 시 대화 기록 탭으로 전환
+			activeTab = 'history';
+		} else {
+			// 특정 대화 선택 시 상세 보기
+			selectedConversationId = conversationId;
+		}
 	}
 
 	function handleLanguageChange(langCode) {
@@ -199,26 +215,47 @@
 		{/if}
 
 		<!-- 메인 콘텐츠 카드 -->
-		<div
-			class="mx-auto w-full max-w-2xl rounded-3xl bg-white/70 backdrop-blur-xl shadow-2xl shadow-purple-500/10 border-2 border-white/50 p-4 sm:p-6 lg:p-8 transition-all hover:shadow-3xl hover:shadow-purple-500/20"
-		>
-			<!-- 대화하기 탭 - 언마운트 방지를 위해 CSS로 숨김 -->
-			<div class:hidden={activeTab !== 'conversation'}>
-				<RealtimeConversation 
-					onError={handleError} 
-					{currentLanguage}
-					onConversationSaved={handleConversationSaved}
-				/>
+		<div class="mx-auto w-full max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-6">
+			<!-- 대화하기 섹션 -->
+			<div class="lg:col-span-2">
+				<div
+					class="rounded-3xl bg-white/70 backdrop-blur-xl shadow-2xl shadow-purple-500/10 border-2 border-white/50 p-4 sm:p-6 lg:p-8 transition-all hover:shadow-3xl hover:shadow-purple-500/20"
+				>
+					<!-- 대화하기 탭 - 언마운트 방지를 위해 CSS로 숨김 -->
+					<div class:hidden={activeTab !== 'conversation'}>
+						<RealtimeConversation 
+							onError={handleError} 
+							{currentLanguage}
+							onConversationSaved={handleConversationSaved}
+						/>
+					</div>
+					<!-- 대화 기록 탭 - 언마운트 방지를 위해 CSS로 숨김 -->
+					{#if $authStore.user}
+						<div class:hidden={activeTab !== 'history'}>
+							<ConversationList 
+								bind:this={conversationListRef}
+								{currentLanguage} 
+								onSelectConversation={handleSelectConversation}
+								onError={handleError}
+							/>
+						</div>
+					{/if}
+				</div>
 			</div>
-			<!-- 대화 기록 탭 - 언마운트 방지를 위해 CSS로 숨김 -->
-			{#if $authStore.user}
-				<div class:hidden={activeTab !== 'history'}>
-					<ConversationList 
-						bind:this={conversationListRef}
-						{currentLanguage} 
-						onSelectConversation={handleSelectConversation}
-						onError={handleError}
-					/>
+
+			<!-- 사이드바: 최근 대화 기록 (대화하기 탭일 때만 표시) -->
+			{#if $authStore.user && activeTab === 'conversation'}
+				<div class="lg:col-span-1">
+					<div
+						class="rounded-3xl bg-white/70 backdrop-blur-xl shadow-2xl shadow-purple-500/10 border-2 border-white/50 p-4 sm:p-6 lg:p-8 transition-all hover:shadow-3xl hover:shadow-purple-500/20"
+					>
+						<RecentConversations 
+							bind:this={recentConversationsRef}
+							{currentLanguage}
+							onSelectConversation={handleSelectRecentConversation}
+							limit={5}
+						/>
+					</div>
 				</div>
 			{/if}
 		</div>
