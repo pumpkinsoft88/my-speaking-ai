@@ -67,12 +67,12 @@
 	// 탭이 'history'로 변경될 때 목록 새로고침
 	$effect(() => {
 		if (activeTab === 'history' && conversationListRef) {
-			// 약간의 지연을 두어 컴포넌트가 완전히 마운트된 후 새로고침
+			// 약간의 지연을 두어 컴포넌트가 완전히 렌더링된 후 새로고침
 			setTimeout(() => {
-				if (conversationListRef) {
+				if (conversationListRef && activeTab === 'history') {
 					conversationListRef.refresh();
 				}
-			}, 100);
+			}, 200);
 		}
 	});
 
@@ -202,19 +202,24 @@
 		<div
 			class="mx-auto w-full max-w-2xl rounded-3xl bg-white/70 backdrop-blur-xl shadow-2xl shadow-purple-500/10 border-2 border-white/50 p-4 sm:p-6 lg:p-8 transition-all hover:shadow-3xl hover:shadow-purple-500/20"
 		>
-			{#if activeTab === 'conversation'}
+			<!-- 대화하기 탭 - 언마운트 방지를 위해 CSS로 숨김 -->
+			<div class:hidden={activeTab !== 'conversation'}>
 				<RealtimeConversation 
 					onError={handleError} 
 					{currentLanguage}
 					onConversationSaved={handleConversationSaved}
 				/>
-			{:else if activeTab === 'history' && $authStore.user}
-				<ConversationList 
-					bind:this={conversationListRef}
-					{currentLanguage} 
-					onSelectConversation={handleSelectConversation}
-					onError={handleError}
-				/>
+			</div>
+			<!-- 대화 기록 탭 - 언마운트 방지를 위해 CSS로 숨김 -->
+			{#if $authStore.user}
+				<div class:hidden={activeTab !== 'history'}>
+					<ConversationList 
+						bind:this={conversationListRef}
+						{currentLanguage} 
+						onSelectConversation={handleSelectConversation}
+						onError={handleError}
+					/>
+				</div>
 			{/if}
 		</div>
 

@@ -101,9 +101,10 @@
 	 * Realtime 구독 설정
 	 */
 	async function setupRealtimeSubscription() {
-		// 기존 구독이 있으면 제거
+		// 기존 구독이 있으면 제거하지 않고 재사용
 		if (realtimeChannel) {
-			supabase.removeChannel(realtimeChannel);
+			console.log('📡 Realtime 구독이 이미 존재합니다. 재사용합니다.');
+			return;
 		}
 
 		// 사용자 ID 가져오기
@@ -179,7 +180,7 @@
 		return realtimeChannel;
 	}
 
-	onMount(async () => {
+	async function initializeSubscription() {
 		// 초기 목록 로드
 		await loadConversations();
 		
@@ -187,14 +188,25 @@
 		const { data: { user } } = await supabase.auth.getUser();
 		
 		if (user) {
-			// Realtime 구독 설정
-			setupRealtimeSubscription();
+			// Realtime 구독 설정 (이미 있으면 재사용)
+			if (!realtimeChannel) {
+				setupRealtimeSubscription();
+			} else {
+				// 구독이 이미 있으면 목록만 새로고침
+				await loadConversations();
+			}
 		}
+	}
+
+	onMount(async () => {
+		await initializeSubscription();
 	});
 
 	onDestroy(() => {
-		// 컴포넌트 언마운트 시 구독 제거
+		// 컴포넌트 완전히 언마운트될 때만 구독 제거
+		// (탭 전환 시에는 언마운트되지 않으므로 구독 유지)
 		if (realtimeChannel) {
+			console.log('🗑️ ConversationList 언마운트 - Realtime 구독 제거');
 			supabase.removeChannel(realtimeChannel);
 			realtimeChannel = null;
 		}

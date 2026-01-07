@@ -471,7 +471,44 @@ export class RealtimeClient {
 						// 세션 객체가 여전히 존재하면 다시 오디오 스트림 검색
 						if (sessionRef && typeof sessionRef === 'object') {
 							const postDisconnectStreams = new Set();
-							findMediaStreams(sessionRef);
+							const postVisited = new WeakSet();
+							
+							// findMediaStreams 함수 재정의 (스코프 문제 해결)
+							const findMediaStreamsPost = (obj, depth = 0) => {
+								if (!obj || depth > 5 || postVisited.has(obj)) return;
+								if (typeof obj !== 'object') return;
+								
+								postVisited.add(obj);
+								
+								if (obj instanceof MediaStream || 
+								    (obj.getTracks && typeof obj.getTracks === 'function' && 
+								     obj.getAudioTracks && typeof obj.getAudioTracks === 'function')) {
+									postDisconnectStreams.add(obj);
+									return;
+								}
+								
+								try {
+									for (const key in obj) {
+										if (key.startsWith('_') || 
+										    ['audio', 'stream', 'input', 'output', 'media'].some(term => 
+										    	key.toLowerCase().includes(term))) {
+											try {
+												const value = obj[key];
+												if (value && typeof value === 'object') {
+													findMediaStreamsPost(value, depth + 1);
+												}
+											} catch (e) {
+												// 접근 불가능한 속성 무시
+											}
+										}
+									}
+								} catch (e) {
+									// 객체 순회 중 에러 무시
+								}
+							};
+							
+							findMediaStreamsPost(sessionRef);
+							
 							for (const stream of postDisconnectStreams) {
 								if (stream && stream.getTracks) {
 									stream.getTracks().forEach(track => {
@@ -546,7 +583,44 @@ export class RealtimeClient {
 			try {
 				// 마지막 오디오 스트림 검색 및 중지
 				const lastCheckStreams = new Set();
-				findMediaStreams(sessionRef);
+				const lastVisited = new WeakSet();
+				
+				// findMediaStreams 함수 재정의 (스코프 문제 해결)
+				const findMediaStreamsLast = (obj, depth = 0) => {
+					if (!obj || depth > 5 || lastVisited.has(obj)) return;
+					if (typeof obj !== 'object') return;
+					
+					lastVisited.add(obj);
+					
+					if (obj instanceof MediaStream || 
+					    (obj.getTracks && typeof obj.getTracks === 'function' && 
+					     obj.getAudioTracks && typeof obj.getAudioTracks === 'function')) {
+						lastCheckStreams.add(obj);
+						return;
+					}
+					
+					try {
+						for (const key in obj) {
+							if (key.startsWith('_') || 
+							    ['audio', 'stream', 'input', 'output', 'media'].some(term => 
+							    	key.toLowerCase().includes(term))) {
+								try {
+									const value = obj[key];
+									if (value && typeof value === 'object') {
+										findMediaStreamsLast(value, depth + 1);
+									}
+								} catch (e) {
+									// 접근 불가능한 속성 무시
+								}
+							}
+						}
+					} catch (e) {
+						// 객체 순회 중 에러 무시
+					}
+				};
+				
+				findMediaStreamsLast(sessionRef);
+				
 				for (const stream of lastCheckStreams) {
 					if (stream && stream.getTracks) {
 						stream.getTracks().forEach(track => {
