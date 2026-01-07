@@ -249,6 +249,54 @@
 			try {
 				const session = realtimeClient.session;
 				
+				// 오디오 스트림 즉시 중지 (AI 목소리 중지 - 최우선)
+				try {
+					// 오디오 중지 메서드 시도
+					if (typeof session.stopAudio === 'function') {
+						session.stopAudio();
+						console.log('✅ [UI] Audio stopped via stopAudio()');
+					}
+					if (typeof session.pauseAudio === 'function') {
+						session.pauseAudio();
+						console.log('✅ [UI] Audio paused via pauseAudio()');
+					}
+					if (typeof session.closeAudio === 'function') {
+						session.closeAudio();
+						console.log('✅ [UI] Audio closed via closeAudio()');
+					}
+					
+					// 오디오 스트림 직접 찾아서 중지
+					const audioStreams = [
+						session._audioInput,
+						session._audioOutput,
+						session.audioInput,
+						session.audioOutput,
+						session._inputStream,
+						session._outputStream
+					];
+					
+					for (const stream of audioStreams) {
+						if (stream) {
+							try {
+								if (stream.getTracks && typeof stream.getTracks === 'function') {
+									stream.getTracks().forEach(track => {
+										track.stop();
+										console.log('✅ [UI] Audio track stopped');
+									});
+								}
+								if (typeof stream.stop === 'function') {
+									stream.stop();
+									console.log('✅ [UI] Audio stream stopped');
+								}
+							} catch (streamErr) {
+								console.warn('⚠️ [UI] Error stopping audio stream:', streamErr);
+							}
+						}
+					}
+				} catch (audioErr) {
+					console.warn('⚠️ [UI] Could not stop audio:', audioErr);
+				}
+				
 				// WebSocket 연결 즉시 강제 종료
 				const possiblePaths = [
 					session._ws,

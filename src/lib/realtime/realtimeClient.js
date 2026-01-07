@@ -224,6 +224,56 @@ export class RealtimeClient {
 			
 			console.log('🛑 [DISCONNECT] Force disconnecting session immediately...');
 			
+			// 오디오 스트림 즉시 중지 (AI 목소리 중지 - 과금 방지 최우선)
+			try {
+				// 오디오 입력/출력 중지 메서드 시도
+				if (typeof sessionRef.stopAudio === 'function') {
+					sessionRef.stopAudio();
+					console.log('✅ [DISCONNECT] Audio stopped via stopAudio()');
+				}
+				if (typeof sessionRef.pauseAudio === 'function') {
+					sessionRef.pauseAudio();
+					console.log('✅ [DISCONNECT] Audio paused via pauseAudio()');
+				}
+				if (typeof sessionRef.closeAudio === 'function') {
+					sessionRef.closeAudio();
+					console.log('✅ [DISCONNECT] Audio closed via closeAudio()');
+				}
+				
+				// 오디오 스트림 직접 찾아서 중지
+				const audioStreams = [
+					sessionRef._audioInput,
+					sessionRef._audioOutput,
+					sessionRef.audioInput,
+					sessionRef.audioOutput,
+					sessionRef._inputStream,
+					sessionRef._outputStream,
+					sessionRef.inputStream,
+					sessionRef.outputStream
+				];
+				
+				for (const stream of audioStreams) {
+					if (stream) {
+						try {
+							if (stream.getTracks && typeof stream.getTracks === 'function') {
+								stream.getTracks().forEach(track => {
+									track.stop();
+									console.log('✅ [DISCONNECT] Audio track stopped');
+								});
+							}
+							if (typeof stream.stop === 'function') {
+								stream.stop();
+								console.log('✅ [DISCONNECT] Audio stream stopped');
+							}
+						} catch (streamErr) {
+							console.warn('⚠️ [DISCONNECT] Error stopping audio stream:', streamErr);
+						}
+					}
+				}
+			} catch (audioErr) {
+				console.warn('⚠️ [DISCONNECT] Could not stop audio:', audioErr);
+			}
+			
 			// 즉시 WebSocket 연결 강제 종료 (과금 방지 최우선)
 			try {
 				// 모든 가능한 경로로 WebSocket 찾기
@@ -260,6 +310,25 @@ export class RealtimeClient {
 				console.warn('⚠️ [DISCONNECT] Could not find/close WebSocket:', wsErr);
 			}
 			
+			// 세션 disconnect() 먼저 호출 (오디오 스트림 중지를 위해)
+			try {
+				if (sessionRef && typeof sessionRef.disconnect === 'function') {
+					console.log('🛑 [DISCONNECT] Calling session.disconnect() to stop audio...');
+					// 매우 짧은 타임아웃 (500ms) - 빠른 종료
+					await Promise.race([
+						sessionRef.disconnect(),
+						new Promise((_, reject) => 
+							setTimeout(() => reject(new Error('Disconnect timeout')), 500)
+						)
+					]).catch((err) => {
+						console.warn('⚠️ [DISCONNECT] Disconnect timeout (continuing with force cleanup):', err.message);
+					});
+					console.log('✅ [DISCONNECT] Session.disconnect() completed');
+				}
+			} catch (err) {
+				console.warn('⚠️ [DISCONNECT] Error calling disconnect():', err);
+			}
+			
 			// 세션의 모든 이벤트 리스너 즉시 제거
 			try {
 				if (sessionRef.removeAllListeners) {
@@ -278,25 +347,6 @@ export class RealtimeClient {
 			// 이렇게 하면 세션의 모든 메서드 호출이 실패하게 됨
 			this.session = null;
 			console.log('✅ [DISCONNECT] Session object immediately set to null');
-			
-			// 세션 disconnect() 호출 시도 (세션이 null이므로 실패할 수 있음)
-			try {
-				// 세션이 null이 아니면 disconnect 시도
-				if (sessionRef && typeof sessionRef.disconnect === 'function') {
-					// 매우 짧은 타임아웃 (1초)
-					await Promise.race([
-						sessionRef.disconnect(),
-						new Promise((_, reject) => 
-							setTimeout(() => reject(new Error('Disconnect timeout')), 1000)
-						)
-					]).catch(() => {
-						// 타임아웃은 무시 (이미 세션을 null로 설정했으므로)
-					});
-				}
-			} catch (err) {
-				// 에러 무시 (이미 세션을 null로 설정했으므로)
-				console.log('ℹ️ [DISCONNECT] Session disconnect call ignored (session already null)');
-			}
 		}
 
 		// 4. Agent 정리
@@ -313,6 +363,18 @@ export class RealtimeClient {
 		const disconnectDuration = Date.now() - disconnectStartTime;
 		console.log(`✅ [DISCONNECT] Disconnect completed in ${disconnectDuration}ms`);
 		console.log(`📊 [DISCONNECT] Final state: isConnected=${this.isConnected}, session=${this.session === null}, agent=${this.agent === null}`);
+		
+		// 세션이 null이 아니면 강제로 null 설정 (검증 실패 방지)
+		if (this.session !== null) {
+			console.warn('⚠️ [DISCONNECT] Session is not null, forcing to null...');
+			this.session = null;
+		}
+		
+		// Agent가 null이 아니면 강제로 null 설정
+		if (this.agent !== null) {
+			console.warn('⚠️ [DISCONNECT] Agent is not null, forcing to null...');
+			this.agent = null;
+		}
 
 		// 6. 종료 검증
 		const verification = this.verifyDisconnected();
