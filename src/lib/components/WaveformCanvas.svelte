@@ -2,9 +2,11 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
 
-	export let analyser = null;
-	export let dataArray = null;
-	export let isRecording = false;
+	let { 
+		analyser = null,
+		dataArray = null,
+		isRecording = false
+	} = $props();
 
 	let canvas = null;
 	let canvasContext = null;
@@ -91,24 +93,26 @@
 	});
 
 	// 녹음 중일 때 애니메이션 루프 시작
-	$: if (isRecording && analyser && dataArray && canvasContext && !animationFrame) {
-		const animate = () => {
-			drawWaveform();
-			if (isRecording && analyser) {
-				animationFrame = requestAnimationFrame(animate);
-			} else {
-				animationFrame = null;
-			}
-		};
-		animate();
-	}
+	$effect(() => {
+		if (isRecording && analyser && dataArray && canvasContext && !animationFrame) {
+			const animate = () => {
+				drawWaveform();
+				if (isRecording && analyser) {
+					animationFrame = requestAnimationFrame(animate);
+				} else {
+					animationFrame = null;
+				}
+			};
+			animate();
+		}
 
-	// 녹음 중지 시 애니메이션 정리
-	$: if (!isRecording && animationFrame) {
-		cancelAnimationFrame(animationFrame);
-		animationFrame = null;
-		drawWaveform(); // 마지막으로 한 번 그리기
-	}
+		// 녹음 중지 시 애니메이션 정리
+		if (!isRecording && animationFrame) {
+			cancelAnimationFrame(animationFrame);
+			animationFrame = null;
+			drawWaveform(); // 마지막으로 한 번 그리기
+		}
+	});
 
 	onDestroy(() => {
 		if (animationFrame) {

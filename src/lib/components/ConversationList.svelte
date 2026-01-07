@@ -5,9 +5,11 @@
 	import { supabase } from '$lib/supabase/client.js';
 	import { translations } from '$lib/i18n/translations.js';
 
-	export let currentLanguage = 'traditional';
-	export let onSelectConversation = null;
-	export let onError = null;
+	let { 
+		currentLanguage = 'traditional',
+		onSelectConversation = null,
+		onError = null
+	} = $props();
 
 	// 외부에서 호출할 수 있는 새로고침 함수
 	export function refresh() {

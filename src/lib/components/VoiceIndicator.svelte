@@ -1,8 +1,10 @@
 <!-- /src/lib/components/VoiceIndicator.svelte -->
 <script>
-	export let label = '';
-	export let isActive = false;
-	export let color = 'blue'; // 'blue' or 'red'
+	let { 
+		label = '',
+		isActive = false,
+		color = 'blue' // 'blue' or 'red'
+	} = $props();
 
 	const colorClasses = {
 		blue: {
@@ -21,7 +23,7 @@
 		}
 	};
 
-	$: colors = colorClasses[color] || colorClasses.blue;
+	let colors = $derived(colorClasses[color] || colorClasses.blue);
 </script>
 
 <div class="flex flex-col items-center gap-3">

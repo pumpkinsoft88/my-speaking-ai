@@ -5,8 +5,10 @@
 	import { formatTime } from '$lib/utils/timeFormatter.js';
 	import WaveformCanvas from './WaveformCanvas.svelte';
 
-	export let onError = null;
-	export let onRecordingComplete = null;
+	let { 
+		onError = null,
+		onRecordingComplete = null
+	} = $props();
 
 	let recorder = null;
 	let isRecording = false;
@@ -40,13 +42,15 @@
 	});
 
 	// 녹음 중일 때 파형 데이터 업데이트
-	$: if (isRecording && recorder && recorder.audioContext) {
-		analyser = recorder.analyser;
-		dataArray = recorder.dataArray;
-	} else {
-		analyser = null;
-		dataArray = null;
-	}
+	$effect(() => {
+		if (isRecording && recorder && recorder.audioContext) {
+			analyser = recorder.analyser;
+			dataArray = recorder.dataArray;
+		} else {
+			analyser = null;
+			dataArray = null;
+		}
+	});
 
 	onDestroy(() => {
 		if (recorder) {

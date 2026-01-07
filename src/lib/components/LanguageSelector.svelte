@@ -3,12 +3,14 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 
-	export let currentLanguage = 'traditional';
-	export let onLanguageChange = null;
+	let { 
+		currentLanguage = 'traditional',
+		onLanguageChange = null
+	} = $props();
 
-	let showDropdown = false;
-	let dropdownElement;
-	let buttonElement;
+	let showDropdown = $state(false);
+	let dropdownElement = $state(null);
+	let buttonElement = $state(null);
 
 	const languages = [
 		{ code: 'korean', name: '한국어', flag: '🇰🇷' },
@@ -99,14 +101,16 @@
 	}
 
 	// 드롭다운이 열릴 때 위치 조정
-	$: if (browser && showDropdown && dropdownElement) {
-		// 드롭다운이 렌더링된 후 위치 조정
-		requestAnimationFrame(() => {
+	$effect(() => {
+		if (browser && showDropdown && dropdownElement) {
+			// 드롭다운이 렌더링된 후 위치 조정
 			requestAnimationFrame(() => {
-				adjustDropdownPosition();
+				requestAnimationFrame(() => {
+					adjustDropdownPosition();
+				});
 			});
-		});
-	}
+		}
+	});
 
 	// 윈도우 리사이즈 시 위치 재조정
 	function handleResize() {
@@ -131,15 +135,17 @@
 	}
 
 	// 드롭다운이 열릴 때 이벤트 리스너 추가 (브라우저에서만)
-	$: if (browser && showDropdown) {
-		// 다음 틱에 이벤트 리스너 추가 (현재 클릭 이벤트가 처리된 후)
-		setTimeout(() => {
-			document.addEventListener('click', handleClickOutside);
-		}, 0);
-	} else if (browser) {
-		// 드롭다운이 닫힐 때 이벤트 리스너 제거
-		document.removeEventListener('click', handleClickOutside);
-	}
+	$effect(() => {
+		if (browser && showDropdown) {
+			// 다음 틱에 이벤트 리스너 추가 (현재 클릭 이벤트가 처리된 후)
+			setTimeout(() => {
+				document.addEventListener('click', handleClickOutside);
+			}, 0);
+		} else if (browser) {
+			// 드롭다운이 닫힐 때 이벤트 리스너 제거
+			document.removeEventListener('click', handleClickOutside);
+		}
+	});
 
 	onMount(() => {
 		if (browser) {

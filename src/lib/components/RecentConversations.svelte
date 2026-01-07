@@ -4,9 +4,11 @@
 	import { getConversations } from '$lib/supabase/conversations.js';
 	import { translations } from '$lib/i18n/translations.js';
 
-	export let currentLanguage = 'traditional';
-	export let onSelectConversation = null;
-	export let limit = 5; // 최근 대화 개수
+	let { 
+		currentLanguage = 'traditional',
+		onSelectConversation = null,
+		limit = 5 // 최근 대화 개수
+	} = $props();
 
 	let t = $derived(translations[currentLanguage]);
 

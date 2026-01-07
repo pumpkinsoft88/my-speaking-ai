@@ -2,25 +2,25 @@
 <script>
 	import { getRecommendedContent, getRandomContent } from '$lib/data/practiceContent.js';
 	
-	export let level = 'beginner'; // 'beginner', 'intermediate', 'advanced'
-	export let displayMode = 'dual'; // 'dual' (중국어+한국어), 'chinese-only'
-	export let practiceMode = 'free'; // 'free', 'vocabulary', 'sentence'
-	export let practiceContent = ''; // 연습할 단어나 문장
-	export let disabled = false; // 연결 중일 때 비활성화
+	let { 
+		level = 'beginner', // 'beginner', 'intermediate', 'advanced'
+		displayMode = 'dual', // 'dual' (중국어+한국어), 'chinese-only'
+		practiceMode = 'free', // 'free', 'vocabulary', 'sentence'
+		practiceContent = '', // 연습할 단어나 문장
+		disabled = false, // 연결 중일 때 비활성화
+		// 시스템 프롬프트 커스터마이징 옵션
+		tutorPersonality = 'friendly', // 'friendly', 'neutral', 'strict'
+		correctionStyle = 'gentle', // 'gentle', 'direct', 'detailed'
+		responseLength = 'short', // 'very-short', 'short', 'medium'
+		feedbackStyle = 'positive', // 'positive', 'balanced', 'constructive'
+		includeKoreanTranslation = true // 한국어 번역 포함 여부
+	} = $props();
 	
-	// 시스템 프롬프트 커스터마이징 옵션
-	export let tutorPersonality = 'friendly'; // 'friendly', 'neutral', 'strict'
-	export let correctionStyle = 'gentle'; // 'gentle', 'direct', 'detailed'
-	export let responseLength = 'short'; // 'very-short', 'short', 'medium'
-	export let feedbackStyle = 'positive'; // 'positive', 'balanced', 'constructive'
-	export let includeKoreanTranslation = true; // 한국어 번역 포함 여부
+	let showRecommendations = $state(false);
 	
-	let showCustomInput = false;
-	let showRecommendations = false;
-	
-	$: showCustomInput = practiceMode === 'vocabulary' || practiceMode === 'sentence';
-	$: recommendedContent = showCustomInput ? getRecommendedContent(level, practiceMode === 'vocabulary' ? 'vocabulary' : 'sentences') : [];
-	$: randomContent = showCustomInput ? getRandomContent(level, practiceMode === 'vocabulary' ? 'vocabulary' : 'sentences', 5) : [];
+	let showCustomInput = $derived(practiceMode === 'vocabulary' || practiceMode === 'sentence');
+	let recommendedContent = $derived(showCustomInput ? getRecommendedContent(level, practiceMode === 'vocabulary' ? 'vocabulary' : 'sentences') : []);
+	let randomContent = $derived(showCustomInput ? getRandomContent(level, practiceMode === 'vocabulary' ? 'vocabulary' : 'sentences', 5) : []);
 	
 	function insertRecommended(item) {
 		if (practiceContent) {

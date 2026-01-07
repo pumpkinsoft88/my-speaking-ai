@@ -5,16 +5,14 @@
 	import ConversationHistory from './ConversationHistory.svelte';
 	import { translations } from '$lib/i18n/translations.js';
 
-	export let conversationId = null;
-	export let currentLanguage = 'traditional';
-	export let onClose = null;
-	export let onError = null;
+	let { 
+		conversationId = null,
+		currentLanguage = 'traditional',
+		onClose = null,
+		onError = null
+	} = $props();
 
-	let t = translations[currentLanguage];
-	
-	$: {
-		t = translations[currentLanguage];
-	}
+	let t = $derived(translations[currentLanguage]);
 
 	let conversation = null;
 	let loading = true;

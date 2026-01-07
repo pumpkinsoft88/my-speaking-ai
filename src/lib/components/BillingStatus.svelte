@@ -1,11 +1,13 @@
 <!-- /src/lib/components/BillingStatus.svelte -->
 <script>
-	export let isConnected = false;
-	export let isConnecting = false;
-	export let isDisconnecting = false;
+	let { 
+		isConnected = false,
+		isConnecting = false,
+		isDisconnecting = false
+	} = $props();
 
 	// 과금 상태 계산
-	$: billingStatus = {
+	let billingStatus = $derived({
 		isBilling: isConnected && !isDisconnecting,
 		status: isConnected && !isDisconnecting 
 			? 'billing' 
@@ -28,7 +30,7 @@
 				: isConnecting
 					? '연결을 시도하는 중입니다.'
 					: '연결이 종료되었습니다. 현재 과금이 발생하지 않습니다.'
-	};
+	});
 </script>
 
 <div class="w-full">
