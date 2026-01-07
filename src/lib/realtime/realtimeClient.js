@@ -226,6 +226,10 @@ export class RealtimeClient {
 			
 			console.log('🛑 [DISCONNECT] Force disconnecting session immediately...');
 			console.log('🔍 [DISCONNECT] Session object exists, type:', typeof sessionRef, 'constructor:', sessionRef.constructor?.name);
+			console.log('🔍 [DISCONNECT] Session object keys:', Object.keys(sessionRef).slice(0, 10));
+			
+			// 중요: 세션을 null로 설정하기 전에 모든 오디오를 먼저 중지해야 함!
+			// 세션을 null로 설정하면 오디오 스트림에 접근할 수 없게 됨
 			
 			// 오디오 스트림 즉시 중지 (AI 목소리 중지 - 과금 방지 최우선)
 			try {
@@ -537,20 +541,47 @@ export class RealtimeClient {
 				console.warn('⚠️ [DISCONNECT] Could not remove listeners:', listenerErr);
 			}
 			
+			// 세션 객체를 null로 설정하기 전에 마지막으로 오디오 확인
+			// 세션을 null로 설정하면 더 이상 오디오에 접근할 수 없음
+			try {
+				// 마지막 오디오 스트림 검색 및 중지
+				const lastCheckStreams = new Set();
+				findMediaStreams(sessionRef);
+				for (const stream of lastCheckStreams) {
+					if (stream && stream.getTracks) {
+						stream.getTracks().forEach(track => {
+							if (track && typeof track.stop === 'function' && track.readyState !== 'ended') {
+								track.stop();
+								console.log('✅ [DISCONNECT] Last check: Audio track stopped');
+							}
+						});
+					}
+				}
+			} catch (lastCheckErr) {
+				console.warn('⚠️ [DISCONNECT] Error in last audio check:', lastCheckErr);
+			}
+			
 			// 세션 객체 즉시 null로 설정 (가장 중요!)
 			// 이렇게 하면 세션의 모든 메서드 호출이 실패하게 됨
+			// 하지만 오디오는 이미 중지했으므로 안전함
+			const sessionBeforeNull = this.session;
 			this.session = null;
 			console.log('✅ [DISCONNECT] Session object immediately set to null');
+			console.log('🔍 [DISCONNECT] Session before null:', sessionBeforeNull !== null ? 'exists' : 'null');
+			console.log('🔍 [DISCONNECT] Session after null:', this.session === null ? 'null ✅' : 'NOT NULL ❌');
 			
 			// 추가 확인: 세션이 정말 null인지 확인
 			if (this.session !== null) {
 				console.error('❌ [DISCONNECT] CRITICAL: Session is still not null after setting to null!');
 				console.error('❌ [DISCONNECT] Session value:', this.session);
+				console.error('❌ [DISCONNECT] Session type:', typeof this.session);
 				console.error('❌ [DISCONNECT] Forcing session to null again...');
 				// 강제로 null 설정 (다른 방법 시도)
 				try {
 					Object.defineProperty(this, 'session', { value: null, writable: true, configurable: true });
+					console.log('✅ [DISCONNECT] Used Object.defineProperty to force null');
 				} catch (e) {
+					console.error('❌ [DISCONNECT] Object.defineProperty failed:', e);
 					this.session = null;
 				}
 			}
@@ -561,6 +592,7 @@ export class RealtimeClient {
 		// 세션이 여전히 존재하면 강제로 null 설정 (최우선!)
 		if (this.session !== null) {
 			console.error('❌ [DISCONNECT] CRITICAL: Session still exists after cleanup!');
+			console.error('❌ [DISCONNECT] Session value:', this.session);
 			console.error('❌ [DISCONNECT] Final force: Setting session to null...');
 			this.session = null;
 		}
@@ -611,43 +643,83 @@ export class RealtimeClient {
 			this.agent = null;
 		}
 		
-		// 최종 확인 (강제 null 설정 후)
-		const finalSessionNull = this.session === null;
-		const finalAgentNull = this.agent === null;
+		// 최종 확인 및 강제 정리 (여러 번 시도)
+		let finalSessionNull = this.session === null;
+		let finalAgentNull = this.agent === null;
 		
-		// 최종 강제 정리 (null이 아니면 다시 설정)
-		if (!finalSessionNull) {
-			console.error('❌ [DISCONNECT] CRITICAL ERROR: Session is still not null!');
-			console.error('❌ [DISCONNECT] Final force cleanup: Setting session to null...');
-			this.session = null;
+		// 최대 3번까지 강제 정리 시도
+		for (let attempt = 1; attempt <= 3; attempt++) {
+			if (!finalSessionNull) {
+				console.error(`❌ [DISCONNECT] CRITICAL ERROR (Attempt ${attempt}/3): Session is still not null!`);
+				console.error('❌ [DISCONNECT] Session value:', this.session);
+				console.error('❌ [DISCONNECT] Session type:', typeof this.session);
+				console.error('❌ [DISCONNECT] Forcing session to null...');
+				
+				// 여러 방법으로 null 설정 시도
+				try {
+					this.session = null;
+				} catch (e1) {
+					try {
+						Object.defineProperty(this, 'session', { value: null, writable: true, configurable: true });
+					} catch (e2) {
+						try {
+							delete this.session;
+							this.session = null;
+						} catch (e3) {
+							console.error('❌ [DISCONNECT] All methods failed to set session to null');
+						}
+					}
+				}
+				finalSessionNull = this.session === null;
+			}
+			
+			if (!finalAgentNull) {
+				console.error(`❌ [DISCONNECT] CRITICAL ERROR (Attempt ${attempt}/3): Agent is still not null!`);
+				console.error('❌ [DISCONNECT] Agent value:', this.agent);
+				console.error('❌ [DISCONNECT] Agent type:', typeof this.agent);
+				console.error('❌ [DISCONNECT] Forcing agent to null...');
+				
+				// 여러 방법으로 null 설정 시도
+				try {
+					this.agent = null;
+				} catch (e1) {
+					try {
+						Object.defineProperty(this, 'agent', { value: null, writable: true, configurable: true });
+					} catch (e2) {
+						try {
+							delete this.agent;
+							this.agent = null;
+						} catch (e3) {
+							console.error('❌ [DISCONNECT] All methods failed to set agent to null');
+						}
+					}
+				}
+				finalAgentNull = this.agent === null;
+			}
+			
+			// 둘 다 null이면 중단
+			if (finalSessionNull && finalAgentNull) {
+				break;
+			}
+			
+			// 마지막 시도가 아니면 잠시 대기
+			if (attempt < 3) {
+				await new Promise(resolve => setTimeout(resolve, 10));
+			}
 		}
-		
-		if (!finalAgentNull) {
-			console.error('❌ [DISCONNECT] CRITICAL ERROR: Agent is still not null!');
-			console.error('❌ [DISCONNECT] Final force cleanup: Setting agent to null...');
-			this.agent = null;
-		}
-		
-		// 최종 상태 확인 (강제 정리 후)
-		const verifiedSessionNull = this.session === null;
-		const verifiedAgentNull = this.agent === null;
 		
 		const disconnectDuration = Date.now() - disconnectStartTime;
 		console.log(`✅ [DISCONNECT] Disconnect completed in ${disconnectDuration}ms`);
-		console.log(`📊 [DISCONNECT] Final state: isConnected=${this.isConnected}, session=${verifiedSessionNull}, agent=${verifiedAgentNull}`);
+		console.log(`📊 [DISCONNECT] Final state: isConnected=${this.isConnected}, session=${finalSessionNull}, agent=${finalAgentNull}`);
 		
-		if (!verifiedSessionNull || !verifiedAgentNull) {
-			console.error('❌ [DISCONNECT] FATAL ERROR: Session or Agent could not be set to null!');
-			console.error('❌ [DISCONNECT] Session value:', this.session);
-			console.error('❌ [DISCONNECT] Agent value:', this.agent);
-			// 최후의 수단: 직접 null 할당
-			try {
-				Object.defineProperty(this, 'session', { value: null, writable: true, configurable: true });
-				Object.defineProperty(this, 'agent', { value: null, writable: true, configurable: true });
-				console.log('✅ [DISCONNECT] Forced null using Object.defineProperty');
-			} catch (e) {
-				console.error('❌ [DISCONNECT] Could not force null:', e);
-			}
+		// 최종 확인: 여전히 null이 아니면 에러 로그
+		if (!finalSessionNull || !finalAgentNull) {
+			console.error('❌ [DISCONNECT] FATAL ERROR: Session or Agent could not be set to null after 3 attempts!');
+			console.error('❌ [DISCONNECT] Final Session value:', this.session);
+			console.error('❌ [DISCONNECT] Final Agent value:', this.agent);
+			console.error('❌ [DISCONNECT] This is a critical issue - audio may continue playing!');
+		} else {
+			console.log('✅ [DISCONNECT] Session and Agent successfully set to null');
 		}
 
 		// 6. 종료 검증
