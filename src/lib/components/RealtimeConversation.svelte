@@ -251,7 +251,9 @@
 				
 				// 오디오 스트림 즉시 중지 (AI 목소리 중지 - 최우선)
 				try {
-					// 오디오 중지 메서드 시도
+					console.log('🔍 [UI] Searching for audio streams...');
+					
+					// 1. 오디오 중지 메서드 시도
 					if (typeof session.stopAudio === 'function') {
 						session.stopAudio();
 						console.log('✅ [UI] Audio stopped via stopAudio()');
@@ -265,36 +267,109 @@
 						console.log('✅ [UI] Audio closed via closeAudio()');
 					}
 					
-					// 오디오 스트림 직접 찾아서 중지
-					const audioStreams = [
+					// 2. 알려진 경로의 오디오 스트림 찾기
+					const knownPaths = [
 						session._audioInput,
 						session._audioOutput,
 						session.audioInput,
 						session.audioOutput,
 						session._inputStream,
-						session._outputStream
+						session._outputStream,
+						session._mediaStream,
+						session.mediaStream
 					];
 					
-					for (const stream of audioStreams) {
-						if (stream) {
-							try {
-								if (stream.getTracks && typeof stream.getTracks === 'function') {
-									stream.getTracks().forEach(track => {
-										track.stop();
-										console.log('✅ [UI] Audio track stopped');
-									});
+					// 3. 재귀적으로 모든 속성 검색하여 MediaStream 찾기
+					const foundStreams = new Set();
+					const visited = new WeakSet();
+					
+					function findMediaStreams(obj, depth = 0) {
+						if (!obj || depth > 5 || visited.has(obj)) return;
+						if (typeof obj !== 'object') return;
+						
+						visited.add(obj);
+						
+						// MediaStream인지 확인
+						if (obj instanceof MediaStream || 
+						    (obj.getTracks && typeof obj.getTracks === 'function' && 
+						     obj.getAudioTracks && typeof obj.getAudioTracks === 'function')) {
+							foundStreams.add(obj);
+							return;
+						}
+						
+						// 모든 속성 검색
+						try {
+							for (const key in obj) {
+								if (key.startsWith('_') || 
+								    ['audio', 'stream', 'input', 'output', 'media'].some(term => 
+								    	key.toLowerCase().includes(term))) {
+									try {
+										const value = obj[key];
+										if (value && typeof value === 'object') {
+											findMediaStreams(value, depth + 1);
+										}
+									} catch (e) {
+										// 접근 불가능한 속성 무시
+									}
 								}
-								if (typeof stream.stop === 'function') {
-									stream.stop();
-									console.log('✅ [UI] Audio stream stopped');
-								}
-							} catch (streamErr) {
-								console.warn('⚠️ [UI] Error stopping audio stream:', streamErr);
 							}
+						} catch (e) {
+							// 객체 순회 중 에러 무시
 						}
 					}
+					
+					// 알려진 경로와 세션 전체 검색
+					for (const stream of knownPaths) {
+						if (stream) {
+							foundStreams.add(stream);
+							findMediaStreams(stream);
+						}
+					}
+					findMediaStreams(session);
+					
+					// 4. 찾은 모든 스트림 중지
+					let stoppedCount = 0;
+					for (const stream of foundStreams) {
+						try {
+							if (stream && typeof stream === 'object') {
+								// MediaStream의 모든 트랙 중지
+								if (stream.getTracks && typeof stream.getTracks === 'function') {
+									const tracks = stream.getTracks();
+									tracks.forEach(track => {
+										if (track && typeof track.stop === 'function' && track.readyState !== 'ended') {
+											track.stop();
+											stoppedCount++;
+											console.log(`✅ [UI] Audio track stopped (${track.kind || 'unknown'})`);
+										}
+									});
+								}
+								
+								// 오디오 트랙만 별도로 중지
+								if (stream.getAudioTracks && typeof stream.getAudioTracks === 'function') {
+									const audioTracks = stream.getAudioTracks();
+									audioTracks.forEach(track => {
+										if (track && typeof track.stop === 'function' && track.readyState !== 'ended') {
+											track.stop();
+											stoppedCount++;
+											console.log(`✅ [UI] Audio track stopped (audio)`);
+										}
+									});
+								}
+								
+								// 스트림 자체에 stop 메서드가 있으면 호출
+								if (typeof stream.stop === 'function') {
+									stream.stop();
+									console.log('✅ [UI] Stream stopped via stop()');
+								}
+							}
+						} catch (streamErr) {
+							console.warn('⚠️ [UI] Error stopping stream:', streamErr);
+						}
+					}
+					
+					console.log(`✅ [UI] Stopped ${stoppedCount} audio track(s) from ${foundStreams.size} stream(s)`);
 				} catch (audioErr) {
-					console.warn('⚠️ [UI] Could not stop audio:', audioErr);
+					console.error('❌ [UI] Could not stop audio:', audioErr);
 				}
 				
 				// WebSocket 연결 즉시 강제 종료

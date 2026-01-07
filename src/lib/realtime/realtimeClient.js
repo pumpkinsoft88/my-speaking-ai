@@ -226,7 +226,9 @@ export class RealtimeClient {
 			
 			// 오디오 스트림 즉시 중지 (AI 목소리 중지 - 과금 방지 최우선)
 			try {
-				// 오디오 입력/출력 중지 메서드 시도
+				console.log('🔍 [DISCONNECT] Searching for audio streams...');
+				
+				// 1. 오디오 입력/출력 중지 메서드 시도
 				if (typeof sessionRef.stopAudio === 'function') {
 					sessionRef.stopAudio();
 					console.log('✅ [DISCONNECT] Audio stopped via stopAudio()');
@@ -240,8 +242,8 @@ export class RealtimeClient {
 					console.log('✅ [DISCONNECT] Audio closed via closeAudio()');
 				}
 				
-				// 오디오 스트림 직접 찾아서 중지
-				const audioStreams = [
+				// 2. 알려진 경로의 오디오 스트림 찾기
+				const knownPaths = [
 					sessionRef._audioInput,
 					sessionRef._audioOutput,
 					sessionRef.audioInput,
@@ -249,32 +251,156 @@ export class RealtimeClient {
 					sessionRef._inputStream,
 					sessionRef._outputStream,
 					sessionRef.inputStream,
-					sessionRef.outputStream
+					sessionRef.outputStream,
+					sessionRef._mediaStream,
+					sessionRef.mediaStream,
+					sessionRef._stream,
+					sessionRef.stream
 				];
 				
-				for (const stream of audioStreams) {
+				// 3. 재귀적으로 모든 속성 검색하여 MediaStream 찾기
+				const foundStreams = new Set();
+				const visited = new WeakSet();
+				
+				function findMediaStreams(obj, depth = 0) {
+					if (!obj || depth > 5 || visited.has(obj)) return;
+					if (typeof obj !== 'object') return;
+					
+					visited.add(obj);
+					
+					// MediaStream인지 확인
+					if (obj instanceof MediaStream || 
+					    (obj.getTracks && typeof obj.getTracks === 'function' && 
+					     obj.getAudioTracks && typeof obj.getAudioTracks === 'function')) {
+						foundStreams.add(obj);
+						return;
+					}
+					
+					// 모든 속성 검색
+					try {
+						for (const key in obj) {
+							if (key.startsWith('_') || 
+							    ['audio', 'stream', 'input', 'output', 'media'].some(term => 
+							    	key.toLowerCase().includes(term))) {
+								try {
+									const value = obj[key];
+									if (value && typeof value === 'object') {
+										findMediaStreams(value, depth + 1);
+									}
+								} catch (e) {
+									// 접근 불가능한 속성 무시
+								}
+							}
+						}
+						
+						// Symbol 속성도 확인
+						if (Object.getOwnPropertySymbols) {
+							for (const sym of Object.getOwnPropertySymbols(obj)) {
+								try {
+									const value = obj[sym];
+									if (value && typeof value === 'object') {
+										findMediaStreams(value, depth + 1);
+									}
+								} catch (e) {
+									// 접근 불가능한 속성 무시
+								}
+							}
+						}
+					} catch (e) {
+						// 객체 순회 중 에러 무시
+					}
+				}
+				
+				// 알려진 경로와 세션 전체 검색
+				for (const stream of knownPaths) {
 					if (stream) {
-						try {
+						foundStreams.add(stream);
+						findMediaStreams(stream);
+					}
+				}
+				findMediaStreams(sessionRef);
+				
+				// 4. 찾은 모든 스트림 중지
+				let stoppedCount = 0;
+				for (const stream of foundStreams) {
+					try {
+						if (stream && typeof stream === 'object') {
+							// MediaStream의 모든 트랙 중지
 							if (stream.getTracks && typeof stream.getTracks === 'function') {
-								stream.getTracks().forEach(track => {
-									track.stop();
-									console.log('✅ [DISCONNECT] Audio track stopped');
+								const tracks = stream.getTracks();
+								tracks.forEach(track => {
+									if (track && typeof track.stop === 'function' && track.readyState !== 'ended') {
+										track.stop();
+										stoppedCount++;
+										console.log(`✅ [DISCONNECT] Audio track stopped (${track.kind || 'unknown'})`);
+									}
 								});
 							}
+							
+							// 오디오 트랙만 별도로 중지
+							if (stream.getAudioTracks && typeof stream.getAudioTracks === 'function') {
+								const audioTracks = stream.getAudioTracks();
+								audioTracks.forEach(track => {
+									if (track && typeof track.stop === 'function' && track.readyState !== 'ended') {
+										track.stop();
+										stoppedCount++;
+										console.log(`✅ [DISCONNECT] Audio track stopped (audio)`);
+									}
+								});
+							}
+							
+							// 스트림 자체에 stop 메서드가 있으면 호출
 							if (typeof stream.stop === 'function') {
 								stream.stop();
-								console.log('✅ [DISCONNECT] Audio stream stopped');
+								console.log('✅ [DISCONNECT] Stream stopped via stop()');
 							}
-						} catch (streamErr) {
-							console.warn('⚠️ [DISCONNECT] Error stopping audio stream:', streamErr);
 						}
+					} catch (streamErr) {
+						console.warn('⚠️ [DISCONNECT] Error stopping stream:', streamErr);
+					}
+				}
+				
+				console.log(`✅ [DISCONNECT] Stopped ${stoppedCount} audio track(s) from ${foundStreams.size} stream(s)`);
+				
+				// 5. 브라우저의 모든 활성 MediaStream 중지 (최후의 수단)
+				if (typeof navigator !== 'undefined' && navigator.mediaDevices) {
+					try {
+						// getUserMedia로 생성된 모든 스트림은 추적이 어려우므로
+						// 브라우저의 활성 오디오 컨텍스트를 확인하고 중지
+						const activeAudioContexts = [];
+						// AudioContext를 찾을 수 없으므로 이 부분은 건너뜀
+					} catch (browserErr) {
+						console.warn('⚠️ [DISCONNECT] Could not access browser media devices:', browserErr);
 					}
 				}
 			} catch (audioErr) {
-				console.warn('⚠️ [DISCONNECT] Could not stop audio:', audioErr);
+				console.error('❌ [DISCONNECT] Could not stop audio:', audioErr);
 			}
 			
-			// 즉시 WebSocket 연결 강제 종료 (과금 방지 최우선)
+			// 세션 disconnect() 먼저 호출 (오디오 스트림 중지를 위해 - 가장 중요!)
+			// disconnect()가 내부적으로 오디오를 중지하므로 먼저 호출
+			try {
+				if (sessionRef && typeof sessionRef.disconnect === 'function') {
+					console.log('🛑 [DISCONNECT] Calling session.disconnect() to stop audio and close connection...');
+					// 매우 짧은 타임아웃 (500ms) - 빠른 종료
+					await Promise.race([
+						sessionRef.disconnect(),
+						new Promise((_, reject) => 
+							setTimeout(() => reject(new Error('Disconnect timeout')), 500)
+						)
+					]).catch((err) => {
+						console.warn('⚠️ [DISCONNECT] Disconnect timeout (continuing with force cleanup):', err.message);
+					});
+					console.log('✅ [DISCONNECT] Session.disconnect() completed');
+					
+					// disconnect() 후에도 오디오가 남아있을 수 있으므로 다시 확인
+					// (위의 오디오 중지 로직이 이미 실행되었으므로 추가 확인만)
+				}
+			} catch (err) {
+				console.warn('⚠️ [DISCONNECT] Error calling disconnect():', err);
+			}
+			
+			// 즉시 WebSocket 연결 강제 종료 (disconnect()가 실패한 경우 대비)
 			try {
 				// 모든 가능한 경로로 WebSocket 찾기
 				const possiblePaths = [
@@ -308,25 +434,6 @@ export class RealtimeClient {
 				}
 			} catch (wsErr) {
 				console.warn('⚠️ [DISCONNECT] Could not find/close WebSocket:', wsErr);
-			}
-			
-			// 세션 disconnect() 먼저 호출 (오디오 스트림 중지를 위해)
-			try {
-				if (sessionRef && typeof sessionRef.disconnect === 'function') {
-					console.log('🛑 [DISCONNECT] Calling session.disconnect() to stop audio...');
-					// 매우 짧은 타임아웃 (500ms) - 빠른 종료
-					await Promise.race([
-						sessionRef.disconnect(),
-						new Promise((_, reject) => 
-							setTimeout(() => reject(new Error('Disconnect timeout')), 500)
-						)
-					]).catch((err) => {
-						console.warn('⚠️ [DISCONNECT] Disconnect timeout (continuing with force cleanup):', err.message);
-					});
-					console.log('✅ [DISCONNECT] Session.disconnect() completed');
-				}
-			} catch (err) {
-				console.warn('⚠️ [DISCONNECT] Error calling disconnect():', err);
 			}
 			
 			// 세션의 모든 이벤트 리스너 즉시 제거
