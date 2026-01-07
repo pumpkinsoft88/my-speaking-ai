@@ -527,20 +527,43 @@ export class RealtimeClient {
 			this.agent = null;
 		}
 		
-		const disconnectDuration = Date.now() - disconnectStartTime;
-		console.log(`✅ [DISCONNECT] Disconnect completed in ${disconnectDuration}ms`);
-		
 		// 최종 확인 (강제 null 설정 후)
 		const finalSessionNull = this.session === null;
 		const finalAgentNull = this.agent === null;
-		console.log(`📊 [DISCONNECT] Final state: isConnected=${this.isConnected}, session=${finalSessionNull}, agent=${finalAgentNull}`);
 		
-		if (!finalSessionNull || !finalAgentNull) {
-			console.error('❌ [DISCONNECT] CRITICAL ERROR: Session or Agent is still not null!');
-			console.error('❌ [DISCONNECT] Final force cleanup...');
+		// 최종 강제 정리 (null이 아니면 다시 설정)
+		if (!finalSessionNull) {
+			console.error('❌ [DISCONNECT] CRITICAL ERROR: Session is still not null!');
+			console.error('❌ [DISCONNECT] Final force cleanup: Setting session to null...');
 			this.session = null;
+		}
+		
+		if (!finalAgentNull) {
+			console.error('❌ [DISCONNECT] CRITICAL ERROR: Agent is still not null!');
+			console.error('❌ [DISCONNECT] Final force cleanup: Setting agent to null...');
 			this.agent = null;
-			this.isConnected = false;
+		}
+		
+		// 최종 상태 확인 (강제 정리 후)
+		const verifiedSessionNull = this.session === null;
+		const verifiedAgentNull = this.agent === null;
+		
+		const disconnectDuration = Date.now() - disconnectStartTime;
+		console.log(`✅ [DISCONNECT] Disconnect completed in ${disconnectDuration}ms`);
+		console.log(`📊 [DISCONNECT] Final state: isConnected=${this.isConnected}, session=${verifiedSessionNull}, agent=${verifiedAgentNull}`);
+		
+		if (!verifiedSessionNull || !verifiedAgentNull) {
+			console.error('❌ [DISCONNECT] FATAL ERROR: Session or Agent could not be set to null!');
+			console.error('❌ [DISCONNECT] Session value:', this.session);
+			console.error('❌ [DISCONNECT] Agent value:', this.agent);
+			// 최후의 수단: 직접 null 할당
+			try {
+				Object.defineProperty(this, 'session', { value: null, writable: true, configurable: true });
+				Object.defineProperty(this, 'agent', { value: null, writable: true, configurable: true });
+				console.log('✅ [DISCONNECT] Forced null using Object.defineProperty');
+			} catch (e) {
+				console.error('❌ [DISCONNECT] Could not force null:', e);
+			}
 		}
 
 		// 6. 종료 검증
