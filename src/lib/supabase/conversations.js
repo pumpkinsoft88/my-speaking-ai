@@ -28,33 +28,57 @@ export async function saveConversation(conversationData) {
 		}
 
 		console.log('💾 대화 저장 시도 - 사용자 ID:', user.id);
+		console.log('💾 사용자 이메일:', user.email);
 
 		// 프로필 확인 및 생성 (없으면 생성)
+		let profileExists = false;
 		const { data: profile, error: profileError } = await supabase
 			.from('profiles')
 			.select('id')
 			.eq('id', user.id)
 			.single();
 
-		if (profileError && profileError.code === 'PGRST116') {
-			// 프로필이 없는 경우 생성
-			console.log('⚠️ 프로필이 없습니다. 프로필 생성 중...');
-			const { error: insertProfileError } = await supabase
-				.from('profiles')
-				.insert({
-					id: user.id,
-					email: user.email || '',
-					name: user.user_metadata?.name || user.email?.split('@')[0] || 'User'
-				});
+		if (profileError) {
+			if (profileError.code === 'PGRST116') {
+				// 프로필이 없는 경우 생성
+				console.log('⚠️ 프로필이 없습니다. 프로필 생성 중...');
+				const { data: newProfile, error: insertProfileError } = await supabase
+					.from('profiles')
+					.insert({
+						id: user.id,
+						email: user.email || '',
+						name: user.user_metadata?.name || user.email?.split('@')[0] || 'User'
+					})
+					.select()
+					.single();
 
-			if (insertProfileError) {
-				console.error('프로필 생성 오류:', insertProfileError);
-				throw new Error('프로필 생성 실패: ' + insertProfileError.message);
+				if (insertProfileError) {
+					console.error('❌ 프로필 생성 오류:', {
+						error: insertProfileError,
+						message: insertProfileError.message,
+						details: insertProfileError.details,
+						hint: insertProfileError.hint,
+						code: insertProfileError.code
+					});
+					throw new Error('프로필 생성 실패: ' + insertProfileError.message);
+				}
+				console.log('✅ 프로필 생성 완료:', newProfile);
+				profileExists = true;
+			} else {
+				console.error('❌ 프로필 확인 오류:', {
+					error: profileError,
+					message: profileError.message,
+					code: profileError.code
+				});
+				throw new Error('프로필 확인 실패: ' + profileError.message);
 			}
-			console.log('✅ 프로필 생성 완료');
-		} else if (profileError) {
-			console.error('프로필 확인 오류:', profileError);
-			throw new Error('프로필 확인 실패: ' + profileError.message);
+		} else {
+			console.log('✅ 프로필 확인 완료:', profile);
+			profileExists = true;
+		}
+
+		if (!profileExists) {
+			throw new Error('프로필이 존재하지 않습니다.');
 		}
 
 		// 첫 번째 사용자 메시지로 제목 생성 (없으면 기본 제목 사용)

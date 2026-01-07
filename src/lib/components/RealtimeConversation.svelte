@@ -9,15 +9,13 @@
 	import { translations } from '$lib/i18n/translations.js';
 	import { saveConversation } from '$lib/supabase/conversations.js';
 
-	export let onError = null;
-	export let currentLanguage = 'traditional';
-	export let onConversationSaved = null; // 대화 저장 성공 시 호출될 콜백
+	let { 
+		onError = null,
+		currentLanguage = 'traditional',
+		onConversationSaved = null // 대화 저장 성공 시 호출될 콜백
+	} = $props();
 	
-	let t = translations[currentLanguage];
-	
-	$: {
-		t = translations[currentLanguage];
-	}
+	let t = $derived(translations[currentLanguage]);
 
 	// 연습 설정
 	let level = 'beginner'; // 'beginner', 'intermediate', 'advanced'
@@ -33,6 +31,7 @@
 		let realtimeClient = null;
 		let isSaving = false; // 대화 저장 중 플래그
 		let saveSuccess = false; // 저장 성공 플래그
+		let wasConnectedBeforeUnmount = false; // 언마운트 전 연결 상태
 	let isSpeaking = false; // 사용자가 말하고 있는지
 	let isListening = false; // AI가 말하고 있는지
 	let disconnectVerification = null; // 종료 검증 결과
@@ -475,7 +474,22 @@
 	 * 현재 대화를 데이터베이스에 저장
 	 */
 	async function saveCurrentConversation() {
-		if (isSaving || conversationHistory.length === 0) return;
+		if (isSaving) {
+			console.log('⚠️ 이미 저장 중입니다.');
+			return;
+		}
+		
+		if (conversationHistory.length === 0) {
+			console.log('⚠️ 저장할 대화가 없습니다.');
+			return;
+		}
+		
+		console.log('💾 대화 저장 시작...', {
+			messageCount: conversationHistory.length,
+			language: currentLanguage,
+			level: level,
+			practiceMode: practiceMode
+		});
 		
 		isSaving = true;
 		saveSuccess = false;
@@ -490,7 +504,13 @@
 			});
 			
 			if (error) {
-				console.error('대화 저장 실패:', error);
+				console.error('❌ 대화 저장 실패:', {
+					error: error,
+					message: error.message,
+					details: error.details,
+					hint: error.hint,
+					code: error.code
+				});
 				if (onError) {
 					onError('대화 저장에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
 				}
@@ -507,20 +527,42 @@
 				}
 			}
 		} catch (err) {
-			console.error('대화 저장 중 오류:', err);
+			console.error('❌ 대화 저장 중 예외 발생:', {
+				error: err,
+				message: err.message,
+				stack: err.stack
+			});
 			if (onError) {
-				onError('대화 저장 중 오류가 발생했습니다.');
+				onError('대화 저장 중 오류가 발생했습니다: ' + (err.message || '알 수 없는 오류'));
 			}
 		} finally {
 			isSaving = false;
 		}
 	}
 
+	// 컴포넌트가 숨겨질 때 (탭 전환) 연결 유지
+	// 완전히 언마운트될 때만 연결 종료
+	let isMounted = $state(true);
+	
+	$effect(() => {
+		// 컴포넌트가 다시 보일 때 연결 상태 확인
+		if (isMounted && wasConnectedBeforeUnmount && !isConnected && !isConnecting) {
+			// 이전에 연결되어 있었다면, 실제로는 연결이 끊어졌으므로 상태만 초기화
+			wasConnectedBeforeUnmount = false;
+		}
+	});
+
 	onDestroy(() => {
+		// 연결 상태 저장
+		wasConnectedBeforeUnmount = isConnected;
+		
+		// 완전히 언마운트될 때만 정리
 		if (activityCheckInterval) {
 			clearInterval(activityCheckInterval);
 		}
-		if (realtimeClient) {
+		// 탭 전환 시에는 연결을 유지하므로 disconnect 하지 않음
+		// 페이지를 떠날 때만 disconnect
+		if (realtimeClient && !wasConnectedBeforeUnmount) {
 			realtimeClient.disconnect();
 		}
 	});
