@@ -16,6 +16,11 @@ import { supabase } from './client.js';
  */
 export async function saveConversation(conversationData) {
 	try {
+		// Supabase 클라이언트가 제대로 초기화되었는지 확인
+		if (!supabase) {
+			throw new Error('Supabase 클라이언트가 초기화되지 않았습니다.');
+		}
+
 		const { data: { user }, error: userError } = await supabase.auth.getUser();
 		
 		if (userError) {
@@ -89,50 +94,10 @@ export async function saveConversation(conversationData) {
 			? firstUserMessage.content[0].text.substring(0, 50) + (firstUserMessage.content[0].text.length > 50 ? '...' : '')
 			: `대화 ${new Date().toLocaleString('ko-KR')}`;
 
-		// 메시지 형식 검증 및 정리
-		const validatedMessages = (conversationData.messages || []).map((msg, index) => {
-			// 기본 형식 확인
-			if (!msg.role) {
-				console.warn(`⚠️ 메시지 ${index}에 role이 없습니다:`, msg);
-				return null;
-			}
-			
-			// content 배열 정리
-			let content = [];
-			if (Array.isArray(msg.content)) {
-				content = msg.content.filter(item => {
-					if (item.type === 'text' && item.text) {
-						return true;
-					}
-					return false;
-				});
-			} else if (typeof msg.content === 'string') {
-				// 레거시 형식 지원
-				content = [{ type: 'text', text: msg.content }];
-			}
-			
-			if (content.length === 0) {
-				console.warn(`⚠️ 메시지 ${index}에 유효한 content가 없습니다:`, msg);
-				return null;
-			}
-			
-			return {
-				role: msg.role,
-				content: content,
-				timestamp: msg.timestamp || new Date().toISOString()
-			};
-		}).filter(msg => msg !== null); // null 제거
-		
-		if (validatedMessages.length === 0) {
-			throw new Error('저장할 유효한 메시지가 없습니다.');
-		}
-
 		console.log('💾 대화 저장 중...', {
 			user_id: user.id,
 			title: title,
-			message_count: validatedMessages.length,
-			original_count: conversationData.messages.length,
-			messages_sample: validatedMessages.slice(0, 2)
+			message_count: conversationData.messages.length
 		});
 
 		const { data, error } = await supabase
@@ -140,7 +105,7 @@ export async function saveConversation(conversationData) {
 			.insert({
 				user_id: user.id,
 				title: title,
-				messages: validatedMessages,
+				messages: conversationData.messages,
 				language: conversationData.language || 'traditional',
 				level: conversationData.level || 'beginner',
 				practice_mode: conversationData.practiceMode || 'free',
@@ -177,19 +142,16 @@ export async function saveConversation(conversationData) {
  */
 export async function getConversations(options = {}) {
 	try {
-		const { data: { user }, error: userError } = await supabase.auth.getUser();
-		
-		if (userError) {
-			console.error('❌ 사용자 가져오기 오류:', userError);
-			throw new Error('사용자 인증 오류: ' + userError.message);
-		}
-		
-		if (!user) {
-			console.warn('⚠️ 사용자가 로그인하지 않았습니다.');
-			throw new Error('로그인이 필요합니다.');
+		// Supabase 클라이언트가 제대로 초기화되었는지 확인
+		if (!supabase) {
+			throw new Error('Supabase 클라이언트가 초기화되지 않았습니다.');
 		}
 
-		console.log('📋 대화 목록 조회 시작 - 사용자 ID:', user.id);
+		const { data: { user } } = await supabase.auth.getUser();
+		
+		if (!user) {
+			throw new Error('로그인이 필요합니다.');
+		}
 
 		const { limit = 50, offset = 0 } = options;
 
@@ -200,28 +162,10 @@ export async function getConversations(options = {}) {
 			.order('created_at', { ascending: false })
 			.range(offset, offset + limit - 1);
 
-		if (error) {
-			console.error('❌ 대화 목록 조회 실패:', {
-				error: error,
-				message: error.message,
-				details: error.details,
-				hint: error.hint,
-				code: error.code
-			});
-			throw error;
-		}
-
-		console.log('✅ 대화 목록 조회 성공:', {
-			count: data?.length || 0,
-			conversations: data?.map(c => ({
-				id: c.id,
-				title: c.title,
-				messageCount: Array.isArray(c.messages) ? c.messages.length : 0
-			}))
-		});
+		if (error) throw error;
 
 		// 메시지 개수 추가
-		const conversationsWithCount = (data || []).map(conv => ({
+		const conversationsWithCount = data.map(conv => ({
 			...conv,
 			messageCount: Array.isArray(conv.messages) ? conv.messages.length : 0,
 			messages: undefined // 목록에서는 메시지 내용 제외 (성능 최적화)
@@ -229,11 +173,7 @@ export async function getConversations(options = {}) {
 
 		return { data: conversationsWithCount, error: null };
 	} catch (error) {
-		console.error('❌ 대화 목록 조회 오류:', {
-			error: error,
-			message: error.message,
-			stack: error.stack
-		});
+		console.error('대화 목록 조회 오류:', error);
 		return { data: null, error };
 	}
 }
@@ -245,6 +185,11 @@ export async function getConversations(options = {}) {
  */
 export async function getConversationById(conversationId) {
 	try {
+		// Supabase 클라이언트가 제대로 초기화되었는지 확인
+		if (!supabase) {
+			throw new Error('Supabase 클라이언트가 초기화되지 않았습니다.');
+		}
+
 		const { data: { user } } = await supabase.auth.getUser();
 		
 		if (!user) {
@@ -274,6 +219,11 @@ export async function getConversationById(conversationId) {
  */
 export async function deleteConversation(conversationId) {
 	try {
+		// Supabase 클라이언트가 제대로 초기화되었는지 확인
+		if (!supabase) {
+			throw new Error('Supabase 클라이언트가 초기화되지 않았습니다.');
+		}
+
 		const { data: { user } } = await supabase.auth.getUser();
 		
 		if (!user) {
@@ -305,6 +255,11 @@ export async function deleteConversation(conversationId) {
  */
 export async function updateConversationTitle(conversationId, title) {
 	try {
+		// Supabase 클라이언트가 제대로 초기화되었는지 확인
+		if (!supabase) {
+			throw new Error('Supabase 클라이언트가 초기화되지 않았습니다.');
+		}
+
 		const { data: { user } } = await supabase.auth.getUser();
 		
 		if (!user) {

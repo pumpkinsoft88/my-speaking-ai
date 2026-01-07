@@ -482,54 +482,26 @@
 			let historyToSave = [];
 			if (realtimeClient && typeof realtimeClient.getConversationHistory === 'function') {
 				historyToSave = realtimeClient.getConversationHistory();
-				console.log('💾 [SAVE] RealtimeClient에서 대화 기록 가져옴:', {
-					messageCount: historyToSave.length,
-					method: 'getConversationHistory'
-				});
 			} else {
 				// fallback: 컴포넌트의 conversationHistory 사용
 				historyToSave = [...conversationHistory];
-				console.log('💾 [SAVE] 컴포넌트의 conversationHistory 사용:', {
-					messageCount: historyToSave.length,
-					method: 'conversationHistory'
-				});
 			}
 			
-			// 메시지 형식 검증
-			const validMessages = historyToSave.filter((msg, index) => {
-				if (!msg || !msg.role) {
-					console.warn(`⚠️ [SAVE] 메시지 ${index}에 role이 없습니다:`, msg);
-					return false;
-				}
-				if (!msg.content || !Array.isArray(msg.content) || msg.content.length === 0) {
-					console.warn(`⚠️ [SAVE] 메시지 ${index}에 유효한 content가 없습니다:`, msg);
-					return false;
-				}
-				return true;
-			});
-			
-			console.log('💾 [SAVE] 대화 저장 준비:', {
-				totalMessages: historyToSave.length,
-				validMessages: validMessages.length,
-				invalidMessages: historyToSave.length - validMessages.length,
-				messages: validMessages.map(m => ({
+			console.log('💾 [SAVE] Preparing to save conversation:', {
+				messageCount: historyToSave.length,
+				messages: historyToSave.map(m => ({
 					role: m.role,
 					hasContent: !!m.content,
 					contentLength: m.content?.length || 0,
-					contentTypes: m.content?.map(c => c.type) || [],
 					timestamp: m.timestamp
 				}))
 			});
 			
-			if (validMessages.length > 0) {
-				console.log('💾 대화 저장 시작 - 유효한 메시지 개수:', validMessages.length);
-				await saveCurrentConversation(validMessages);
+			if (historyToSave.length > 0) {
+				console.log('💾 대화 저장 시작 - 메시지 개수:', historyToSave.length);
+				await saveCurrentConversation(historyToSave);
 			} else {
-				console.warn('⚠️ 저장할 유효한 대화가 없습니다.', {
-					originalCount: historyToSave.length,
-					conversationHistoryCount: conversationHistory.length,
-					hasRealtimeClient: !!realtimeClient
-				});
+				console.log('⚠️ 저장할 대화가 없습니다. conversationHistory:', conversationHistory);
 			}
 		} catch (err) {
 			console.error('❌ [UI] Error during disconnect:', err);
@@ -609,19 +581,14 @@
 					onError('대화 저장에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
 				}
 			} else {
-				console.log('✅ 대화 저장 성공:', {
-					id: data?.id,
-					title: data?.title,
-					created_at: data?.created_at
-				});
+				console.log('✅ 대화 저장 성공:', data);
 				saveSuccess = true;
 				// 3초 후 성공 메시지 숨기기
 				setTimeout(() => {
 					saveSuccess = false;
 				}, 3000);
-				// 저장 성공 콜백 호출 (목록 새로고침)
+				// 저장 성공 콜백 호출
 				if (onConversationSaved) {
-					console.log('📢 저장 성공 콜백 호출 - 목록 새로고침');
 					onConversationSaved();
 				}
 			}
@@ -822,7 +789,7 @@
 				<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
 				</svg>
-				<span>대화가 저장되었습니다! 대화 기록 탭에서 확인할 수 있습니다.</span>
+				<span>대화가 저장되었습니다!</span>
 			</div>
 		</div>
 	{/if}

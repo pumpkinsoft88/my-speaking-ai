@@ -43,40 +43,13 @@
 	async function loadConversations() {
 		loading = true;
 		try {
-			console.log('📋 대화 목록 로드 시작...');
 			const { data, error } = await getConversations({ limit: 100 });
-			
-			if (error) {
-				console.error('❌ 대화 목록 로드 실패:', {
-					error: error,
-					message: error.message,
-					details: error.details,
-					hint: error.hint,
-					code: error.code
-				});
-				throw error;
-			}
-			
-			console.log('✅ 대화 목록 로드 성공:', {
-				count: data?.length || 0,
-				conversations: data?.map(c => ({ id: c.id, title: c.title }))
-			});
-			
+			if (error) throw error;
 			conversations = data || [];
-			
-			if (conversations.length === 0) {
-				console.log('ℹ️ 저장된 대화가 없습니다.');
-			}
 		} catch (err) {
-			console.error('❌ 대화 목록 로드 오류:', {
-				error: err,
-				message: err.message,
-				stack: err.stack
-			});
-			conversations = [];
+			console.error('대화 목록 로드 오류:', err);
 			if (onError) {
-				const errorMessage = err.message || '대화 목록을 불러오는데 실패했습니다.';
-				onError(errorMessage);
+				onError('대화 목록을 불러오는데 실패했습니다.');
 			}
 		} finally {
 			loading = false;
@@ -266,16 +239,7 @@
 		<div class="rounded-3xl border-2 border-dashed border-purple-200/50 bg-gradient-to-br from-white/60 to-purple-50/30 backdrop-blur-sm p-8 text-center">
 			<div class="mb-4 text-4xl">📝</div>
 			<p class="text-sm font-semibold text-slate-600">저장된 대화가 없습니다</p>
-			<p class="mt-2 text-xs text-slate-500 mb-4">대화를 시작하고 종료하면 자동으로 저장됩니다</p>
-			<div class="mt-4 p-4 rounded-xl bg-blue-50/50 border border-blue-200/50 text-left">
-				<p class="text-xs font-semibold text-blue-700 mb-2">💡 대화 저장 방법:</p>
-				<ol class="text-xs text-blue-600 space-y-1 list-decimal list-inside">
-					<li>대화하기 탭에서 대화를 시작하세요</li>
-					<li>AI 튜터와 대화를 나누세요</li>
-					<li>대화 종료 버튼을 눌러 대화를 종료하세요</li>
-					<li>대화가 자동으로 저장됩니다</li>
-				</ol>
-			</div>
+			<p class="mt-2 text-xs text-slate-500">대화를 시작하고 종료하면 자동으로 저장됩니다</p>
 		</div>
 	{:else}
 		<!-- 대화 목록 -->

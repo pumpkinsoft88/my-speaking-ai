@@ -20,6 +20,17 @@ export async function initAuth() {
 	if (!browser) return;
 
 	try {
+		// Supabase 클라이언트 확인
+		if (!supabase) {
+			console.error('Supabase 클라이언트가 초기화되지 않았습니다.');
+			authStore.set({
+				user: null,
+				session: null,
+				loading: false
+			});
+			return;
+		}
+
 		// 현재 세션 가져오기 (localStorage에서 자동으로 복원됨)
 		const { data: { session }, error } = await supabase.auth.getSession();
 		
@@ -71,6 +82,11 @@ export async function initAuth() {
  */
 export async function signUp(email, password) {
 	try {
+		// Supabase 클라이언트 확인
+		if (!supabase) {
+			throw new Error('Supabase 클라이언트가 초기화되지 않았습니다.');
+		}
+
 		// 브라우저 환경에서는 현재 origin을 사용하여 절대 URL 생성
 		// 이렇게 하면 로컬 개발, 프로덕션, 프리뷰 환경 모두 자동으로 처리됨
 		let redirectURL;
@@ -131,6 +147,11 @@ export async function signUp(email, password) {
  */
 export async function signIn(email, password) {
 	try {
+		// Supabase 클라이언트 확인
+		if (!supabase) {
+			throw new Error('Supabase 클라이언트가 초기화되지 않았습니다.');
+		}
+
 		const { data, error } = await supabase.auth.signInWithPassword({
 			email,
 			password
@@ -150,6 +171,11 @@ export async function signIn(email, password) {
  */
 export async function signOut() {
 	try {
+		// Supabase 클라이언트 확인
+		if (!supabase) {
+			throw new Error('Supabase 클라이언트가 초기화되지 않았습니다.');
+		}
+
 		const { error } = await supabase.auth.signOut();
 		if (error) throw error;
 		return { error: null };
