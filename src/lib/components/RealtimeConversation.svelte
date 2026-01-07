@@ -400,6 +400,13 @@
 				// 세션 객체 즉시 null로 설정 (가장 중요!)
 				realtimeClient.session = null;
 				console.log('✅ [UI] Session immediately set to null');
+				
+				// 추가 확인: 세션이 정말 null인지 확인
+				if (realtimeClient.session !== null) {
+					console.error('❌ [UI] CRITICAL: Session is still not null after setting to null!');
+					console.error('❌ [UI] Forcing session to null again...');
+					realtimeClient.session = null;
+				}
 			} catch (forceErr) {
 				console.warn('⚠️ [UI] Force cleanup error:', forceErr);
 			}

@@ -218,11 +218,14 @@ export class RealtimeClient {
 		this.networkActivity.lastRequestTime = null;
 
 		// 3. 세션 즉시 강제 종료 (과금 방지를 위해 최우선)
-		if (this.session) {
-			const sessionRef = this.session; // 참조 저장
+		// 세션이 null이 아니면 무조건 처리 (UI에서 null로 설정했어도 다시 확인)
+		const sessionRef = this.session; // 참조 저장 (null일 수 있음)
+		
+		if (sessionRef) {
 			this._forceDisconnect = true; // 강제 종료 플래그 설정
 			
 			console.log('🛑 [DISCONNECT] Force disconnecting session immediately...');
+			console.log('🔍 [DISCONNECT] Session object exists, type:', typeof sessionRef, 'constructor:', sessionRef.constructor?.name);
 			
 			// 오디오 스트림 즉시 중지 (AI 목소리 중지 - 과금 방지 최우선)
 			try {
@@ -454,12 +457,55 @@ export class RealtimeClient {
 			// 이렇게 하면 세션의 모든 메서드 호출이 실패하게 됨
 			this.session = null;
 			console.log('✅ [DISCONNECT] Session object immediately set to null');
+			
+			// 추가 확인: 세션이 정말 null인지 확인
+			if (this.session !== null) {
+				console.error('❌ [DISCONNECT] CRITICAL: Session is still not null after setting to null!');
+				console.error('❌ [DISCONNECT] Session value:', this.session);
+				console.error('❌ [DISCONNECT] Forcing session to null again...');
+				// 강제로 null 설정 (다른 방법 시도)
+				try {
+					Object.defineProperty(this, 'session', { value: null, writable: true, configurable: true });
+				} catch (e) {
+					this.session = null;
+				}
+			}
+		} else {
+			console.log('ℹ️ [DISCONNECT] No session to disconnect (already null)');
+		}
+		
+		// 세션이 여전히 존재하면 강제로 null 설정 (최우선!)
+		if (this.session !== null) {
+			console.error('❌ [DISCONNECT] CRITICAL: Session still exists after cleanup!');
+			console.error('❌ [DISCONNECT] Final force: Setting session to null...');
+			this.session = null;
 		}
 
-		// 4. Agent 정리
+		// 4. Agent 정리 (세션보다 먼저 정리)
 		if (this.agent) {
+			// Agent의 오디오 관련 기능도 중지 시도
+			try {
+				if (typeof this.agent.stop === 'function') {
+					this.agent.stop();
+					console.log('✅ [DISCONNECT] Agent stopped');
+				}
+				if (typeof this.agent.pause === 'function') {
+					this.agent.pause();
+					console.log('✅ [DISCONNECT] Agent paused');
+				}
+			} catch (agentErr) {
+				console.warn('⚠️ [DISCONNECT] Error stopping agent:', agentErr);
+			}
+			
 			this.agent = null;
 			console.log('✅ [DISCONNECT] Agent object cleared');
+			
+			// 추가 확인: Agent가 정말 null인지 확인
+			if (this.agent !== null) {
+				console.error('❌ [DISCONNECT] CRITICAL: Agent is still not null after setting to null!');
+				console.error('❌ [DISCONNECT] Forcing agent to null again...');
+				this.agent = null;
+			}
 		}
 
 		// 5. 상태 초기화
@@ -467,20 +513,34 @@ export class RealtimeClient {
 		this.currentAssistantMessage = null;
 		this.lastDisconnectTime = new Date().toISOString();
 
-		const disconnectDuration = Date.now() - disconnectStartTime;
-		console.log(`✅ [DISCONNECT] Disconnect completed in ${disconnectDuration}ms`);
-		console.log(`📊 [DISCONNECT] Final state: isConnected=${this.isConnected}, session=${this.session === null}, agent=${this.agent === null}`);
-		
-		// 세션이 null이 아니면 강제로 null 설정 (검증 실패 방지)
+		// 세션이 null이 아니면 강제로 null 설정 (검증 실패 방지 - 최우선!)
 		if (this.session !== null) {
-			console.warn('⚠️ [DISCONNECT] Session is not null, forcing to null...');
+			console.error('❌ [DISCONNECT] CRITICAL: Session is not null before final check!');
+			console.error('❌ [DISCONNECT] Forcing session to null immediately...');
 			this.session = null;
 		}
 		
 		// Agent가 null이 아니면 강제로 null 설정
 		if (this.agent !== null) {
-			console.warn('⚠️ [DISCONNECT] Agent is not null, forcing to null...');
+			console.error('❌ [DISCONNECT] CRITICAL: Agent is not null before final check!');
+			console.error('❌ [DISCONNECT] Forcing agent to null immediately...');
 			this.agent = null;
+		}
+		
+		const disconnectDuration = Date.now() - disconnectStartTime;
+		console.log(`✅ [DISCONNECT] Disconnect completed in ${disconnectDuration}ms`);
+		
+		// 최종 확인 (강제 null 설정 후)
+		const finalSessionNull = this.session === null;
+		const finalAgentNull = this.agent === null;
+		console.log(`📊 [DISCONNECT] Final state: isConnected=${this.isConnected}, session=${finalSessionNull}, agent=${finalAgentNull}`);
+		
+		if (!finalSessionNull || !finalAgentNull) {
+			console.error('❌ [DISCONNECT] CRITICAL ERROR: Session or Agent is still not null!');
+			console.error('❌ [DISCONNECT] Final force cleanup...');
+			this.session = null;
+			this.agent = null;
+			this.isConnected = false;
 		}
 
 		// 6. 종료 검증
