@@ -24,7 +24,9 @@ export class RealtimeClient {
 			onMessage: null,
 			onError: null,
 			onConnected: null,
-			onDisconnected: null
+			onDisconnected: null,
+			onUserSpeaking: null,
+			onAssistantSpeaking: null
 		};
 		// 강제 종료를 위한 플래그
 		this._forceDisconnect = false;
@@ -79,7 +81,7 @@ export class RealtimeClient {
 	/**
 	 * 이벤트 리스너 설정
 	 */
-	setupEventListeners() {
+		setupEventListeners() {
 		// 대화 아이템 추가
 		this.session.on('conversation.item.added', (event) => {
 			this.recordNetworkActivity('conversation.item.added', { itemType: event.item?.type });
@@ -91,11 +93,20 @@ export class RealtimeClient {
 						content: message.content || [],
 						timestamp: new Date().toISOString()
 					};
+					console.log('📝 [RECORD] Assistant message added:', {
+						contentLength: message.content?.length || 0,
+						hasText: message.content?.some(c => c.type === 'text')
+					});
 				} else if (message.role === 'user') {
-					this.conversationHistory.push({
+					const userMessage = {
 						role: 'user',
 						content: message.content || [],
 						timestamp: new Date().toISOString()
+					};
+					this.conversationHistory.push(userMessage);
+					console.log('📝 [RECORD] User message recorded:', {
+						messageCount: this.conversationHistory.length,
+						content: userMessage.content
 					});
 					this.notifyMessageUpdate();
 				}
@@ -106,8 +117,18 @@ export class RealtimeClient {
 		this.session.on('conversation.item.done', (event) => {
 			if (event.item && event.item.role === 'assistant') {
 				if (this.currentAssistantMessage && this.currentAssistantMessage.content.length > 0) {
-					this.conversationHistory.push(this.currentAssistantMessage);
+					const assistantMessage = { ...this.currentAssistantMessage };
+					this.conversationHistory.push(assistantMessage);
+					console.log('📝 [RECORD] Assistant message completed:', {
+						messageCount: this.conversationHistory.length,
+						contentLength: assistantMessage.content.length,
+						textLength: assistantMessage.content[0]?.text?.length || 0
+					});
 					this.currentAssistantMessage = null;
+					// AI가 말하기 종료
+					if (this.eventHandlers.onAssistantSpeaking) {
+						this.eventHandlers.onAssistantSpeaking(false);
+					}
 					this.notifyMessageUpdate();
 				}
 			}
@@ -123,10 +144,40 @@ export class RealtimeClient {
 						content: [{ type: 'text', text: '' }],
 						timestamp: new Date().toISOString()
 					};
+					// AI가 말하기 시작
+					if (this.eventHandlers.onAssistantSpeaking) {
+						this.eventHandlers.onAssistantSpeaking(true);
+					}
 				}
 				if (this.currentAssistantMessage.content[0]?.type === 'text') {
 					this.currentAssistantMessage.content[0].text += event.delta;
 					this.throttledUpdate();
+				}
+			}
+		});
+
+		// 사용자 입력 시작 (사용자가 말하기 시작)
+		this.session.on('input_audio_buffer.speech_started', () => {
+			console.log('🎤 [SPEECH] User speech started');
+			if (this.eventHandlers.onUserSpeaking) {
+				this.eventHandlers.onUserSpeaking(true);
+			}
+		});
+
+		// 사용자 입력 종료 (사용자가 말하기 종료)
+		this.session.on('input_audio_buffer.speech_stopped', () => {
+			console.log('🎤 [SPEECH] User speech stopped');
+			if (this.eventHandlers.onUserSpeaking) {
+				this.eventHandlers.onUserSpeaking(false);
+			}
+		});
+
+		// AI 응답 시작
+		this.session.on('response.audio_transcript.delta', (event) => {
+			if (event.delta) {
+				// AI가 말하기 시작
+				if (this.eventHandlers.onAssistantSpeaking) {
+					this.eventHandlers.onAssistantSpeaking(true);
 				}
 			}
 		});
@@ -163,8 +214,33 @@ export class RealtimeClient {
 	 */
 	notifyMessageUpdate() {
 		if (this.eventHandlers.onMessage) {
-			this.eventHandlers.onMessage([...this.conversationHistory]);
+			const messagesCopy = [...this.conversationHistory];
+			console.log('📢 [UPDATE] Notifying message update:', {
+				messageCount: messagesCopy.length,
+				messages: messagesCopy.map(m => ({
+					role: m.role,
+					contentLength: m.content?.length || 0,
+					timestamp: m.timestamp
+				}))
+			});
+			this.eventHandlers.onMessage(messagesCopy);
 		}
+	}
+
+	/**
+	 * 현재 대화 기록 가져오기 (저장용)
+	 */
+	getConversationHistory() {
+		const history = [...this.conversationHistory];
+		// 현재 진행 중인 assistant 메시지도 포함
+		if (this.currentAssistantMessage && this.currentAssistantMessage.content.length > 0) {
+			history.push({ ...this.currentAssistantMessage });
+		}
+		console.log('📋 [GET] Conversation history retrieved:', {
+			messageCount: history.length,
+			hasCurrentAssistant: !!this.currentAssistantMessage
+		});
+		return history;
 	}
 
 	/**

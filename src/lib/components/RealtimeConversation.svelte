@@ -133,7 +133,25 @@
 
 			realtimeClient = new RealtimeClient();
 			realtimeClient.on('message', (messages) => {
+				console.log('📨 [UI] Message update received:', {
+					messageCount: messages.length,
+					messages: messages.map(m => ({
+						role: m.role,
+						contentLength: m.content?.length || 0,
+						timestamp: m.timestamp
+					}))
+				});
 				conversationHistory = messages;
+			});
+			// 사용자 말하기 상태 업데이트
+			realtimeClient.on('userSpeaking', (speaking) => {
+				isSpeaking = speaking;
+				console.log('🎤 [UI] User speaking:', speaking);
+			});
+			// 튜터 말하기 상태 업데이트
+			realtimeClient.on('assistantSpeaking', (speaking) => {
+				isListening = speaking;
+				console.log('🎙️ [UI] Assistant speaking:', speaking);
 			});
 			realtimeClient.on('error', (err) => {
 				if (onError) {
@@ -448,12 +466,30 @@
 			console.log('✅ [UI] Disconnect completed, verification:', verification);
 			
 			// 대화 저장 (메시지가 있는 경우에만) - 저장 완료 후 히스토리 초기화
-			const historyToSave = [...conversationHistory]; // 복사본 생성
+			// RealtimeClient에서 최종 대화 기록 가져오기 (진행 중인 메시지 포함)
+			let historyToSave = [];
+			if (realtimeClient && typeof realtimeClient.getConversationHistory === 'function') {
+				historyToSave = realtimeClient.getConversationHistory();
+			} else {
+				// fallback: 컴포넌트의 conversationHistory 사용
+				historyToSave = [...conversationHistory];
+			}
+			
+			console.log('💾 [SAVE] Preparing to save conversation:', {
+				messageCount: historyToSave.length,
+				messages: historyToSave.map(m => ({
+					role: m.role,
+					hasContent: !!m.content,
+					contentLength: m.content?.length || 0,
+					timestamp: m.timestamp
+				}))
+			});
+			
 			if (historyToSave.length > 0) {
 				console.log('💾 대화 저장 시작 - 메시지 개수:', historyToSave.length);
 				await saveCurrentConversation(historyToSave);
 			} else {
-				console.log('⚠️ 저장할 대화가 없습니다.');
+				console.log('⚠️ 저장할 대화가 없습니다. conversationHistory:', conversationHistory);
 			}
 		} catch (err) {
 			console.error('❌ [UI] Error during disconnect:', err);
@@ -741,6 +777,8 @@
 			messages={conversationHistory} 
 			{currentLanguage} 
 			{displayMode}
+			isUserSpeaking={isSpeaking}
+			isAssistantSpeaking={isListening}
 		/>
 	</div>
 
