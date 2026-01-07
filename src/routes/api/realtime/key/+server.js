@@ -17,7 +17,17 @@ export async function POST({ request }) {
 
 		// 요청 데이터 파싱
 		const body = await request.json();
-		const { language = 'traditional', level = 'beginner', practiceMode = 'free', practiceContent = '' } = body;
+		const { 
+			language = 'traditional', 
+			level = 'beginner', 
+			practiceMode = 'free', 
+			practiceContent = '',
+			tutorPersonality = 'friendly',
+			correctionStyle = 'gentle',
+			responseLength = 'short',
+			feedbackStyle = 'positive',
+			includeKoreanTranslation = true
+		} = body;
 
 		// 레벨별 설정
 		const levelConfig = {
@@ -70,22 +80,52 @@ export async function POST({ request }) {
 			korean: '사용자와 중국어로 대화하며, 일반적인 회화 표현을 사용하세요'
 		};
 
-		// 동적 프롬프트 생성
-		const instructions = `你是一位友善的中文對話老師，專門幫助學習者練習中文。你的任務是幫助用戶練習中文口語。
+		// 튜터 성격 설정
+		const personalityMap = {
+			friendly: {
+				tone: '友善、溫暖、親切',
+				description: '你是一位友善、溫暖的中文對話老師，專門幫助學習者練習中文。你的任務是幫助用戶練習中文口語。'
+			},
+			neutral: {
+				tone: '專業、客觀、中立',
+				description: '你是一位專業、客觀的中文對話老師，專門幫助學習자練習中文。你的任務是幫助用戶練習中文口語。'
+			},
+			strict: {
+				tone: '嚴格、精確、認真',
+				description: '你是一位嚴格、認真的中文對話老師，專門幫助學習者練習中文。你的任務是幫助用戶練習中文口語，並確保語言的準確性。'
+			}
+		};
 
-【학습자 레벨】${currentLevel.description}
-${currentLevel.complexity}
+		// 교정 방식 설정
+		const correctionMap = {
+			gentle: '當用戶犯錯時，溫和地、友善地糾正並給出正確表達，不要讓用戶感到壓力',
+			direct: '當用戶犯錯時，直接、明確地指出錯誤並給出正確表達',
+			detailed: '當用戶犯錯時，詳細解釋錯誤的原因，並給出正確表達和相關例句'
+		};
 
-【기본 원칙】
-1. ${languageInstructions[language] || languageInstructions.traditional}
-2. 根據用戶的水平調整對話難度（當前：${currentLevel.description}）
-3. 當用戶犯錯時，溫和地糾正並給出正確表達
-4. 保持對話非常簡短，每次回覆不超過1-2句話
-5. 使用日常口語，避免過於正式的表達
-6. 鼓勵用戶多說，給予積極的反饋
-7. 可以提出簡單的問題引導對話
-${practiceInstructions}
+		// 응답 길이 설정
+		const responseLengthMap = {
+			'very-short': '保持對話極其簡短，每次回覆不超過1句話',
+			'short': '保持對話非常簡短，每次回覆不超過1-2句話',
+			'medium': '保持對話簡潔，每次回覆不超過2-3句話'
+		};
 
+		// 피드백 스타일 설정
+		const feedbackMap = {
+			positive: '鼓勵用戶多說，給予積極、正面的反饋和讚美',
+			balanced: '給予平衡的 feedback，既鼓勵用戶，也指出需要改進的地方',
+			constructive: '給予建設性的 feedback，重點關注如何改進和提升'
+		};
+
+		const personality = personalityMap[tutorPersonality] || personalityMap.friendly;
+		const correction = correctionMap[correctionStyle] || correctionMap.gentle;
+		const responseLengthText = responseLengthMap[responseLength] || responseLengthMap.short;
+		const feedback = feedbackMap[feedbackStyle] || feedbackMap.positive;
+
+		// 한국어 번역 포함 여부에 따른 지침
+		let translationInstruction = '';
+		if (includeKoreanTranslation) {
+			translationInstruction = `
 【중요 - 반드시 준수】
 - **모든 응답에서 중국어 뒤에 괄호로 한국어 번역을 반드시 포함하세요**
 - 형식: 中文內容 (한국어 번역)
@@ -95,10 +135,26 @@ ${practiceInstructions}
   * 你吃饭了吗？ (밥 먹었어요?)
   * 我很好，谢谢 (저는 잘 지내요, 감사합니다)
 - 번역은 자연스러운 한국어로 제공하세요
-- 중국어와 한국어 번역을 함께 제공하는 것이 필수입니다
-- 保持回覆極簡短以降低延遲
+- 중국어와 한국어 번역을 함께 제공하는 것이 필수입니다`;
+		}
 
-請用中文回覆，保持友善和耐心的態度。모든 응답에 한국어 번역을 괄호 안에 포함하세요.`;
+		// 동적 프롬프트 생성
+		const instructions = `${personality.description}
+
+【학습자 레벨】${currentLevel.description}
+${currentLevel.complexity}
+
+【기본 원칙】
+1. ${languageInstructions[language] || languageInstructions.traditional}
+2. 根據用戶的水平調整對話難度（當前：${currentLevel.description}）
+3. ${correction}
+4. ${responseLengthText}
+5. 使用日常口語，避免過於正式的表達
+6. ${feedback}
+7. 可以提出簡單的問題引導對話
+${practiceInstructions}
+${translationInstruction}
+${includeKoreanTranslation ? '\n請用中文回覆，保持' + personality.tone + '的態度。모든 응답에 한국어 번역을 괄호 안에 포함하세요.' : '\n請用中文回覆，保持' + personality.tone + '的態度。'}`;
 
 		// Realtime API ephemeral key 생성
 		const sessionConfig = {

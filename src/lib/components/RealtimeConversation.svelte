@@ -23,6 +23,13 @@
 	let practiceMode = $state('free'); // 'free', 'vocabulary', 'sentence'
 	let practiceContent = $state(''); // 연습할 단어나 문장
 	let showSettings = $state(true); // 설정 패널 표시 여부
+	
+	// 시스템 프롬프트 커스터마이징 옵션
+	let tutorPersonality = $state('friendly'); // 'friendly', 'neutral', 'strict'
+	let correctionStyle = $state('gentle'); // 'gentle', 'direct', 'detailed'
+	let responseLength = $state('short'); // 'very-short', 'short', 'medium'
+	let feedbackStyle = $state('positive'); // 'positive', 'balanced', 'constructive'
+	let includeKoreanTranslation = $state(true); // 한국어 번역 포함 여부
 
 	let isConnected = $state(false);
 	let isConnecting = $state(false);
@@ -73,7 +80,12 @@
 					language: currentLanguage,
 					level: level,
 					practiceMode: practiceMode,
-					practiceContent: practiceContent
+					practiceContent: practiceContent,
+					tutorPersonality: tutorPersonality,
+					correctionStyle: correctionStyle,
+					responseLength: responseLength,
+					feedbackStyle: feedbackStyle,
+					includeKoreanTranslation: includeKoreanTranslation
 				})
 			});
 
@@ -640,7 +652,18 @@
 					</svg>
 				</button>
 			</div>
-			<PracticeSettings bind:level bind:displayMode bind:practiceMode bind:practiceContent disabled={isConnecting || isConnected} />
+			<PracticeSettings 
+				bind:level 
+				bind:displayMode 
+				bind:practiceMode 
+				bind:practiceContent 
+				bind:tutorPersonality
+				bind:correctionStyle
+				bind:responseLength
+				bind:feedbackStyle
+				bind:includeKoreanTranslation
+				disabled={isConnecting || isConnected} 
+			/>
 		</div>
 	{:else if !isConnected}
 		<button
