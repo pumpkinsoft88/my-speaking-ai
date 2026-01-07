@@ -146,6 +146,8 @@ CREATE POLICY "Users can delete own conversations"
 -- 8. 유용한 뷰 생성 (선택사항)
 -- ============================================
 -- 회화 기록과 사용자 정보를 함께 조회하는 뷰
+-- 뷰를 재생성하면 기본적으로 SECURITY INVOKER로 생성됩니다.
+-- 이렇게 하면 뷰를 조회하는 사용자의 권한과 RLS 정책이 적용됩니다.
 CREATE OR REPLACE VIEW conversations_with_user AS
 SELECT 
     c.id,

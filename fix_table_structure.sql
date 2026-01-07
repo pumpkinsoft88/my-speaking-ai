@@ -278,6 +278,8 @@ ON CONFLICT (id) DO NOTHING;
 -- ============================================
 
 -- 뷰 생성 (conversations와 profiles를 JOIN)
+-- 뷰를 재생성하면 기본적으로 SECURITY INVOKER로 생성됩니다.
+-- 이렇게 하면 뷰를 조회하는 사용자의 권한과 RLS 정책이 적용됩니다.
 CREATE OR REPLACE VIEW conversations_with_user AS
 SELECT 
     c.id,
