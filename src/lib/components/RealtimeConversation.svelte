@@ -536,7 +536,7 @@
 	 * 현재 대화를 데이터베이스에 저장
 	 * @param {Array} messagesToSave - 저장할 메시지 배열 (선택사항, 없으면 conversationHistory 사용)
 	 */
-	async function saveCurrentConversation(messagesToSave = null) {
+	async function saveCurrentConversation(messagesToSave = null, retryCount = 0) {
 		if (isSaving) {
 			console.log('⚠️ 이미 저장 중입니다.');
 			return;
@@ -548,13 +548,30 @@
 			console.log('⚠️ 저장할 대화가 없습니다.');
 			return;
 		}
+
+		// 메시지 형식 사전 검증
+		const validMessages = messages.filter(msg => {
+			if (!msg || !msg.role) return false;
+			if (!msg.content) return false;
+			if (Array.isArray(msg.content) && msg.content.length === 0) return false;
+			return true;
+		});
+
+		if (validMessages.length === 0) {
+			console.error('❌ 저장할 유효한 메시지가 없습니다.');
+			if (onError) {
+				onError('저장할 유효한 대화가 없습니다.');
+			}
+			return;
+		}
 		
 		console.log('💾 대화 저장 시작...', {
-			messageCount: messages.length,
+			messageCount: validMessages.length,
+			originalCount: messages.length,
 			language: currentLanguage,
 			level: level,
 			practiceMode: practiceMode,
-			messages: messages // 디버깅용
+			retryCount: retryCount
 		});
 		
 		isSaving = true;
@@ -562,7 +579,7 @@
 		
 		try {
 			const { data, error } = await saveConversation({
-				messages: messages,
+				messages: validMessages,
 				language: currentLanguage,
 				level: level,
 				practiceMode: practiceMode,
@@ -575,13 +592,42 @@
 					message: error.message,
 					details: error.details,
 					hint: error.hint,
-					code: error.code
+					code: error.code,
+					retryCount: retryCount
 				});
+
+				// 네트워크 오류나 일시적 오류인 경우 재시도 (최대 2회)
+				const isRetryableError = 
+					error.code === 'PGRST301' || // 네트워크 오류
+					error.message?.includes('network') ||
+					error.message?.includes('timeout') ||
+					error.message?.includes('fetch');
+
+				if (isRetryableError && retryCount < 2) {
+					console.log(`🔄 재시도 중... (${retryCount + 1}/2)`);
+					await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1))); // 지수 백오프
+					return saveCurrentConversation(messagesToSave, retryCount + 1);
+				}
+
+				// 사용자에게 명확한 에러 메시지 표시
+				let errorMessage = '대화 저장에 실패했습니다.';
+				if (error.message?.includes('RLS') || error.message?.includes('policy') || error.message?.includes('permission')) {
+					errorMessage = '대화 저장 권한이 없습니다. Supabase 설정을 확인해주세요.';
+				} else if (error.message?.includes('프로필')) {
+					errorMessage = '프로필이 없습니다. 로그아웃 후 다시 로그인해주세요.';
+				} else {
+					errorMessage = error.message || errorMessage;
+				}
+
 				if (onError) {
-					onError('대화 저장에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
+					onError(errorMessage);
 				}
 			} else {
-				console.log('✅ 대화 저장 성공:', data);
+				console.log('✅ 대화 저장 성공:', {
+					id: data?.id,
+					title: data?.title,
+					created_at: data?.created_at
+				});
 				saveSuccess = true;
 				// 3초 후 성공 메시지 숨기기
 				setTimeout(() => {
@@ -596,8 +642,17 @@
 			console.error('❌ 대화 저장 중 예외 발생:', {
 				error: err,
 				message: err.message,
-				stack: err.stack
+				stack: err.stack,
+				retryCount: retryCount
 			});
+
+			// 네트워크 오류인 경우 재시도
+			if (retryCount < 2 && (err.message?.includes('network') || err.message?.includes('fetch'))) {
+				console.log(`🔄 재시도 중... (${retryCount + 1}/2)`);
+				await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+				return saveCurrentConversation(messagesToSave, retryCount + 1);
+			}
+
 			if (onError) {
 				onError('대화 저장 중 오류가 발생했습니다: ' + (err.message || '알 수 없는 오류'));
 			}

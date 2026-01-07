@@ -86,8 +86,66 @@ export async function saveConversation(conversationData) {
 			throw new Error('프로필이 존재하지 않습니다.');
 		}
 
+		// 메시지 형식 검증 및 정리
+		if (!Array.isArray(conversationData.messages)) {
+			throw new Error('메시지는 배열 형식이어야 합니다.');
+		}
+
+		if (conversationData.messages.length === 0) {
+			throw new Error('저장할 메시지가 없습니다.');
+		}
+
+		// 메시지 형식 정리 및 검증
+		const validatedMessages = conversationData.messages.map((msg, index) => {
+			// 기본 형식 확인
+			if (!msg || typeof msg !== 'object') {
+				console.warn(`⚠️ 메시지 ${index}가 유효하지 않습니다:`, msg);
+				return null;
+			}
+
+			if (!msg.role || (msg.role !== 'user' && msg.role !== 'assistant')) {
+				console.warn(`⚠️ 메시지 ${index}에 유효한 role이 없습니다:`, msg);
+				return null;
+			}
+
+			// content 배열 정리
+			let content = [];
+			if (Array.isArray(msg.content)) {
+				content = msg.content.filter(item => {
+					if (item && typeof item === 'object' && item.type === 'text' && item.text) {
+						return true;
+					}
+					return false;
+				}).map(item => ({
+					type: 'text',
+					text: String(item.text || '')
+				}));
+			} else if (typeof msg.content === 'string') {
+				// 레거시 형식 지원
+				content = [{ type: 'text', text: String(msg.content) }];
+			} else if (msg.content && typeof msg.content === 'object' && msg.content.text) {
+				// 단일 객체 형식 지원
+				content = [{ type: 'text', text: String(msg.content.text) }];
+			}
+
+			if (content.length === 0) {
+				console.warn(`⚠️ 메시지 ${index}에 유효한 content가 없습니다:`, msg);
+				return null;
+			}
+
+			return {
+				role: msg.role,
+				content: content,
+				timestamp: msg.timestamp || new Date().toISOString()
+			};
+		}).filter(msg => msg !== null); // null 제거
+
+		if (validatedMessages.length === 0) {
+			throw new Error('저장할 유효한 메시지가 없습니다.');
+		}
+
 		// 첫 번째 사용자 메시지로 제목 생성 (없으면 기본 제목 사용)
-		const firstUserMessage = conversationData.messages.find(
+		const firstUserMessage = validatedMessages.find(
 			msg => msg.role === 'user' && msg.content?.[0]?.text
 		);
 		const title = firstUserMessage 
@@ -97,7 +155,9 @@ export async function saveConversation(conversationData) {
 		console.log('💾 대화 저장 중...', {
 			user_id: user.id,
 			title: title,
-			message_count: conversationData.messages.length
+			original_message_count: conversationData.messages.length,
+			validated_message_count: validatedMessages.length,
+			messages_sample: validatedMessages.slice(0, 2)
 		});
 
 		const { data, error } = await supabase
@@ -105,7 +165,7 @@ export async function saveConversation(conversationData) {
 			.insert({
 				user_id: user.id,
 				title: title,
-				messages: conversationData.messages,
+				messages: validatedMessages,
 				language: conversationData.language || 'traditional',
 				level: conversationData.level || 'beginner',
 				practice_mode: conversationData.practiceMode || 'free',
@@ -120,15 +180,38 @@ export async function saveConversation(conversationData) {
 				message: error.message,
 				details: error.details,
 				hint: error.hint,
-				code: error.code
+				code: error.code,
+				user_id: user.id,
+				message_count: validatedMessages.length
 			});
+
+			// RLS 정책 오류인 경우 명확한 메시지 제공
+			if (error.code === '42501' || error.message?.includes('permission') || error.message?.includes('policy')) {
+				throw new Error('대화 저장 권한이 없습니다. RLS 정책을 확인해주세요. 에러 코드: ' + error.code);
+			}
+
+			// 외래키 제약조건 오류인 경우
+			if (error.code === '23503' || error.message?.includes('foreign key')) {
+				throw new Error('프로필이 존재하지 않습니다. 프로필을 먼저 생성해주세요. 에러 코드: ' + error.code);
+			}
+
 			throw error;
 		}
 
-		console.log('✅ 대화 저장 성공:', data);
+		console.log('✅ 대화 저장 성공:', {
+			id: data?.id,
+			title: data?.title,
+			message_count: validatedMessages.length,
+			created_at: data?.created_at
+		});
 		return { data, error: null };
 	} catch (error) {
-		console.error('대화 저장 오류:', error);
+		console.error('❌ 대화 저장 오류:', {
+			error: error,
+			message: error.message,
+			stack: error.stack,
+			name: error.name
+		});
 		return { data: null, error };
 	}
 }
