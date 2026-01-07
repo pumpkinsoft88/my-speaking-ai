@@ -4,7 +4,6 @@
 	import { RealtimeClient } from '$lib/realtime/realtimeClient.js';
 	import ConversationHistory from './ConversationHistory.svelte';
 	import VoiceIndicator from './VoiceIndicator.svelte';
-	import BillingStatus from './BillingStatus.svelte';
 	import PracticeSettings from './PracticeSettings.svelte';
 	import { translations } from '$lib/i18n/translations.js';
 	import { saveConversation } from '$lib/supabase/conversations.js';
@@ -689,20 +688,31 @@
 	});
 </script>
 
-<div class="space-y-6">
+<div class="space-y-4">
+	<!-- 대화 기록 - 먼저 표시 -->
+	<div class="w-full">
+		<ConversationHistory 
+			messages={conversationHistory} 
+			{currentLanguage} 
+			{displayMode}
+			isUserSpeaking={isSpeaking}
+			isAssistantSpeaking={isListening}
+		/>
+	</div>
+
 	<!-- 연습 설정 패널 -->
 	{#if showSettings && !isConnected}
-		<div class="mx-auto w-full max-w-2xl rounded-3xl border-2 border-purple-200/50 bg-gradient-to-br from-white/80 to-purple-50/40 backdrop-blur-sm p-4 sm:p-6 lg:p-8 shadow-xl">
-			<div class="mb-4 sm:mb-6 flex items-center justify-between">
-				<h2 class="text-lg sm:text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+		<div class="rounded-xl border border-purple-200 bg-white/80 p-3 sm:p-4 shadow-md">
+			<div class="mb-3 flex items-center justify-between">
+				<h2 class="text-sm sm:text-base font-bold text-purple-700">
 					⚙️ 학습 설정
 				</h2>
 				<button
 					onclick={() => (showSettings = false)}
-					class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+					class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
 					aria-label="설정 닫기"
 				>
-					<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
 					</svg>
 				</button>
@@ -723,47 +733,35 @@
 	{:else if !isConnected}
 		<button
 			onclick={() => (showSettings = true)}
-			class="mx-auto w-full max-w-2xl rounded-3xl border-2 border-dashed border-purple-300/50 bg-gradient-to-br from-white/60 to-purple-50/40 backdrop-blur-sm p-4 sm:p-6 text-xs sm:text-sm font-semibold text-purple-700 hover:border-purple-400 hover:shadow-lg transition-all"
+			class="w-full rounded-lg border border-dashed border-purple-300 bg-white/60 p-3 text-xs font-medium text-purple-700 hover:border-purple-400 hover:bg-purple-50 transition-all"
 		>
 			⚙️ 학습 설정 보기
 		</button>
 	{/if}
 	
 	<!-- 연결 상태 및 제어 -->
-	<div class="mx-auto w-full max-w-2xl flex flex-col items-center gap-6">
+	<div class="flex flex-col items-center gap-3 sm:gap-4">
 		<!-- 상태 표시 -->
-		<div class="flex flex-col items-center gap-4">
-			<div class="flex items-center gap-3">
-				<div
-					class="relative h-5 w-5 rounded-full transition-all {isConnected
-						? 'animate-pulse bg-gradient-to-r from-emerald-400 to-teal-400 ring-4 ring-emerald-400/30 shadow-lg shadow-emerald-400/50'
-						: isConnecting
-							? 'animate-pulse bg-gradient-to-r from-blue-400 to-indigo-400 ring-4 ring-blue-400/30 shadow-lg shadow-blue-400/50'
-							: 'bg-gradient-to-r from-slate-300 to-slate-400'}"
-				></div>
-				<span class="text-base sm:text-lg lg:text-xl font-bold bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent">
-					{isConnected
-						? t.status.connected
-						: isConnecting
-							? t.status.connecting
-							: t.status.waiting}
-				</span>
-			</div>
-			{#if isConnected}
-				<div class="flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-400/20 to-teal-400/20 backdrop-blur-sm border border-emerald-300/30 px-5 py-2 shadow-md">
-					<span class="text-xs font-bold text-emerald-700">⚡ {t.features.lowLatency}</span>
-				</div>
-			{/if}
-			{#if isDisconnecting}
-				<div class="flex items-center gap-2 rounded-full bg-gradient-to-r from-yellow-400/20 to-orange-400/20 backdrop-blur-sm border border-yellow-300/30 px-5 py-2 shadow-md">
-					<span class="text-xs font-bold text-yellow-700">🛑 종료 중...</span>
-				</div>
-			{/if}
+		<div class="flex items-center gap-2">
+			<div
+				class="relative h-3 w-3 rounded-full transition-all {isConnected
+					? 'animate-pulse bg-emerald-400 ring-2 ring-emerald-400/30'
+					: isConnecting
+						? 'animate-pulse bg-blue-400 ring-2 ring-blue-400/30'
+						: 'bg-slate-300'}"
+			></div>
+			<span class="text-sm sm:text-base font-medium text-slate-700">
+				{isConnected
+					? t.status.connected
+					: isConnecting
+						? t.status.connecting
+						: t.status.waiting}
+			</span>
 		</div>
 
 		<!-- 음성 상태 표시 -->
 		{#if isConnected}
-			<div class="flex items-center gap-8">
+			<div class="flex items-center gap-4 sm:gap-6">
 				<VoiceIndicator label={t.conversation.you} isActive={isSpeaking} color="blue" />
 				<VoiceIndicator label={t.conversation.teacher} isActive={isListening} color="red" />
 			</div>
@@ -771,120 +769,43 @@
 
 		<!-- 대화 시작/종료 버튼 -->
 		<button
-			class="group relative flex items-center justify-center gap-2 sm:gap-3 rounded-3xl px-6 sm:px-8 lg:px-10 py-4 sm:py-5 lg:py-6 text-base sm:text-lg lg:text-xl font-extrabold text-white shadow-2xl transition-all duration-300 hover:scale-105 hover:shadow-3xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 {isConnected
-				? 'bg-gradient-to-r from-red-500 via-pink-500 to-rose-500 shadow-red-500/50 hover:shadow-red-500/70'
-				: 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-purple-500/50 hover:shadow-purple-500/70'}"
+			class="group relative flex items-center justify-center gap-2 rounded-2xl px-5 sm:px-6 py-3 sm:py-4 text-sm sm:text-base font-bold text-white shadow-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed {isConnected
+				? 'bg-gradient-to-r from-red-500 to-rose-500'
+				: 'bg-gradient-to-r from-indigo-500 to-purple-500'}"
 			onclick={isConnected ? stopConversation : startConversation}
 			disabled={isConnecting || isDisconnecting}
 			aria-label={isConnected ? t.buttons.stop : t.buttons.start}
 		>
 			{#if isConnected}
-				<svg
-					class="h-5 w-5 sm:h-6 sm:w-6 transition-transform group-hover:rotate-90"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2.5"
-						d="M6 18L18 6M6 6l12 12"
-					/>
+				<svg class="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
 				</svg>
 				<span>{t.buttons.stop}</span>
 			{:else}
-				<svg
-					class="h-5 w-5 sm:h-6 sm:w-6 transition-transform group-hover:scale-110"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2.5"
-						d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-					/>
+				<svg class="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
 				</svg>
 				<span>{isConnecting ? t.buttons.connecting : t.buttons.start}</span>
 			{/if}
-			<!-- 글로우 효과 -->
-			<div
-				class="absolute inset-0 rounded-3xl bg-gradient-to-r from-white/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100 blur-xl"
-			></div>
 		</button>
 	</div>
 
-		<!-- 과금 상태 표시 -->
-	<div class="mx-auto w-full max-w-2xl">
-		<BillingStatus
-			{isConnected}
-			{isConnecting}
-			{isDisconnecting}
-			{disconnectVerification}
-			{networkActivity}
-		/>
-	</div>
-
-	<!-- 저장 상태 표시 -->
+	<!-- 저장 상태 표시 (간소화) -->
 	{#if isSaving}
-		<div class="mx-auto w-full max-w-2xl mt-4 rounded-2xl border-2 border-blue-300/50 bg-gradient-to-br from-blue-50/80 to-indigo-50/80 backdrop-blur-sm px-4 py-3 text-center text-sm text-blue-700 shadow-lg">
-			<div class="flex items-center justify-center gap-2">
-				<svg class="h-5 w-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-				</svg>
-				<span>대화 저장 중...</span>
-			</div>
+		<div class="text-center text-xs text-blue-600">
+			<span>💾 대화 저장 중...</span>
 		</div>
 	{/if}
 	{#if saveSuccess}
-		<div class="mx-auto w-full max-w-2xl mt-4 rounded-2xl border-2 border-emerald-300/50 bg-gradient-to-br from-emerald-50/80 to-teal-50/80 backdrop-blur-sm px-4 py-3 text-center text-sm text-emerald-700 shadow-lg">
-			<div class="flex items-center justify-center gap-2">
-				<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-				</svg>
-				<span>대화가 저장되었습니다!</span>
-			</div>
+		<div class="text-center text-xs text-emerald-600">
+			<span>✅ 대화가 저장되었습니다!</span>
 		</div>
 	{/if}
 
-	<!-- 대화 기록 -->
-	<div class="mx-auto w-full max-w-2xl">
-		<ConversationHistory 
-			messages={conversationHistory} 
-			{currentLanguage} 
-			{displayMode}
-			isUserSpeaking={isSpeaking}
-			isAssistantSpeaking={isListening}
-		/>
-	</div>
-
-	<!-- 안내 메시지 -->
-	{#if !isConnected && !isConnecting}
-		<div
-			class="mx-auto w-full max-w-2xl rounded-3xl border-2 border-dashed border-purple-200/50 bg-gradient-to-br from-white/60 via-purple-50/40 to-pink-50/40 backdrop-blur-sm p-6 sm:p-8 text-center shadow-xl"
-		>
-			<div class="mb-4 sm:mb-5 text-4xl sm:text-5xl lg:text-6xl animate-bounce">🎤</div>
-			<h3 class="mb-3 text-xl sm:text-2xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{t.tips.title}</h3>
-			<p class="mb-4 sm:mb-6 text-slate-600 text-sm sm:text-base lg:text-lg leading-relaxed">
-				{t.tips.description}
-			</p>
-			<div class="flex flex-wrap justify-center gap-2 sm:gap-3">
-				<span class="rounded-full bg-gradient-to-r from-indigo-400 to-purple-400 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-white shadow-md">{t.features.natural}</span>
-				<span class="rounded-full bg-gradient-to-r from-purple-400 to-pink-400 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-white shadow-md">{t.features.feedback}</span>
-				<span class="rounded-full bg-gradient-to-r from-pink-400 to-rose-400 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-white shadow-md">{t.features.lowLatency}</span>
-			</div>
-		</div>
-	{/if}
-
-	<!-- 대화 중 안내 -->
-	{#if isConnected}
-		<div
-			class="mx-auto w-full max-w-2xl rounded-3xl border-2 border-emerald-300/50 bg-gradient-to-br from-emerald-50/80 to-teal-50/80 backdrop-blur-sm p-4 sm:p-6 lg:p-8 text-center shadow-xl"
-		>
-			<p class="font-bold text-emerald-800 text-xs sm:text-sm">{t.tips.speaking}</p>
-			<p class="mt-2 text-xs text-emerald-700 leading-relaxed">{t.tips.feedback}</p>
+	<!-- 안내 메시지 (간소화) -->
+	{#if !isConnected && !isConnecting && conversationHistory.length === 0}
+		<div class="text-center py-4">
+			<p class="text-sm text-slate-600">{t.tips.description}</p>
 		</div>
 	{/if}
 
