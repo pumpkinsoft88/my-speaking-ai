@@ -26,6 +26,8 @@ export class RealtimeClient {
 			onConnected: null,
 			onDisconnected: null
 		};
+		// 강제 종료를 위한 플래그
+		this._forceDisconnect = false;
 	}
 
 	/**
@@ -215,40 +217,100 @@ export class RealtimeClient {
 		this.networkActivity.isActive = false;
 		this.networkActivity.lastRequestTime = null;
 
-		// 3. 세션 종료 (타임아웃 설정)
+		// 3. 세션 종료 (강제 종료 포함)
 		if (this.session) {
+			const sessionRef = this.session; // 참조 저장
+			this._forceDisconnect = true; // 강제 종료 플래그 설정
+			
 			try {
 				console.log('🛑 [DISCONNECT] Disconnecting session...');
 				
-				// 타임아웃 설정 (5초 내에 종료되지 않으면 강제 종료)
-				const disconnectTimeout = setTimeout(() => {
-					console.warn('⚠️ [DISCONNECT] Session disconnect timeout, forcing cleanup...');
-					if (this.session) {
-						// 세션 객체 강제 정리
-						this.session = null;
+				// 세션의 모든 이벤트 리스너 제거 시도
+				try {
+					// RealtimeSession의 이벤트 리스너 제거
+					if (sessionRef.removeAllListeners) {
+						sessionRef.removeAllListeners();
+						console.log('✅ [DISCONNECT] Event listeners removed');
 					}
-				}, 5000);
+				} catch (listenerErr) {
+					console.warn('⚠️ [DISCONNECT] Could not remove listeners:', listenerErr);
+				}
+				
+				// WebSocket 연결 직접 닫기 시도 (먼저 시도)
+				try {
+					// 여러 가능한 경로로 WebSocket 찾기
+					const ws = sessionRef._ws || 
+					          sessionRef.ws || 
+					          sessionRef.connection ||
+					          (sessionRef._connection && sessionRef._connection.ws) ||
+					          (sessionRef._transport && sessionRef._transport.ws);
+					
+					if (ws && typeof ws.close === 'function') {
+						console.log('🔧 [DISCONNECT] Closing WebSocket connection directly...');
+						ws.close(1000, 'User requested disconnect');
+						console.log('✅ [DISCONNECT] WebSocket connection closed');
+					}
+				} catch (wsErr) {
+					console.warn('⚠️ [DISCONNECT] Could not close WebSocket directly:', wsErr);
+				}
+				
+				// 타임아웃 설정 (2초 내에 종료되지 않으면 강제 종료)
+				let forceCleanup = false;
+				const disconnectTimeout = setTimeout(() => {
+					console.warn('⚠️ [DISCONNECT] Session disconnect timeout, forcing immediate cleanup...');
+					forceCleanup = true;
+				}, 2000);
 
-				// 세션 종료 시도
-				await Promise.race([
-					this.session.disconnect(),
-					new Promise((_, reject) => 
-						setTimeout(() => reject(new Error('Disconnect timeout')), 5000)
-					)
-				]).catch((err) => {
-					console.warn('⚠️ [DISCONNECT] Disconnect timeout or error, forcing cleanup:', err.message);
-				});
+				// 세션 종료 시도 (짧은 타임아웃)
+				try {
+					await Promise.race([
+						sessionRef.disconnect(),
+						new Promise((_, reject) => 
+							setTimeout(() => reject(new Error('Disconnect timeout')), 2000)
+						)
+					]);
+					console.log('✅ [DISCONNECT] Session disconnected successfully');
+				} catch (err) {
+					console.warn('⚠️ [DISCONNECT] Disconnect timeout or error:', err.message);
+					forceCleanup = true;
+				}
 
 				clearTimeout(disconnectTimeout);
-				console.log('✅ [DISCONNECT] Session disconnected successfully');
+				
+				// 강제 정리 (타임아웃 발생 시 또는 에러 발생 시)
+				if (forceCleanup) {
+					console.log('🔧 [DISCONNECT] Force cleaning up session...');
+					// 세션의 내부 연결 강제 종료 시도 (다시 시도)
+					try {
+						const ws = sessionRef._ws || 
+						          sessionRef.ws || 
+						          sessionRef.connection ||
+						          (sessionRef._connection && sessionRef._connection.ws) ||
+						          (sessionRef._transport && sessionRef._transport.ws);
+						
+						if (ws) {
+							if (typeof ws.close === 'function') {
+								ws.close(1000, 'Force disconnect');
+							}
+							if (typeof ws.terminate === 'function') {
+								ws.terminate();
+							}
+							console.log('✅ [DISCONNECT] WebSocket connection force closed');
+						}
+					} catch (wsErr) {
+						console.warn('⚠️ [DISCONNECT] Could not force close WebSocket:', wsErr);
+					}
+				}
 			} catch (err) {
 				console.error('❌ [DISCONNECT] Error disconnecting session:', err);
 				// 에러가 발생해도 계속 진행
+			} finally {
+				// 세션 객체 즉시 정리 (이벤트 리스너도 함께 정리됨)
+				// finally 블록에서 항상 실행되도록 보장
+				this.session = null;
+				this._forceDisconnect = false;
+				console.log('✅ [DISCONNECT] Session object cleared');
 			}
-			
-			// 세션 객체 정리 (이벤트 리스너도 함께 정리됨)
-			this.session = null;
-			console.log('✅ [DISCONNECT] Session object cleared');
 		}
 
 		// 4. Agent 정리

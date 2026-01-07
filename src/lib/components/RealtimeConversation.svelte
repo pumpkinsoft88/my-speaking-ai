@@ -245,16 +245,36 @@
 				activityCheckInterval = null;
 			}
 
-			// 실제 종료 수행 (타임아웃 설정)
+				// 실제 종료 수행 (짧은 타임아웃 설정)
 			const disconnectPromise = realtimeClient.disconnect();
 			const timeoutPromise = new Promise((_, reject) => 
-				setTimeout(() => reject(new Error('Disconnect timeout')), 10000)
+				setTimeout(() => reject(new Error('Disconnect timeout')), 3000)
 			);
 
 			const verification = await Promise.race([disconnectPromise, timeoutPromise])
 				.catch((err) => {
-					console.warn('⚠️ [UI] Disconnect timeout or error:', err.message);
-					// 타임아웃이 발생해도 강제로 정리
+					console.warn('⚠️ [UI] Disconnect timeout or error, forcing immediate cleanup:', err.message);
+					// 타임아웃이 발생하면 즉시 강제 정리
+					if (realtimeClient) {
+						// 클라이언트의 세션에 직접 접근하여 강제 종료 시도
+						try {
+							const session = realtimeClient.session;
+							if (session) {
+								// WebSocket 연결 직접 닫기 시도
+								if (session._ws || session.ws || session.connection) {
+									const ws = session._ws || session.ws || session.connection;
+									if (ws && typeof ws.close === 'function') {
+										ws.close();
+										console.log('🔧 [UI] WebSocket connection force closed');
+									}
+								}
+								// 세션 객체 즉시 정리
+								realtimeClient.session = null;
+							}
+						} catch (forceErr) {
+							console.warn('⚠️ [UI] Force cleanup error:', forceErr);
+						}
+					}
 					return {
 						verified: false,
 						checks: { timeout: true },
