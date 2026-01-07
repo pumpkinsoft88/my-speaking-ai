@@ -210,37 +210,57 @@ export class RealtimeClient {
 			console.log('✅ [DISCONNECT] Timers cleared');
 		}
 
-		// 2. 세션 종료
+		// 2. 상태를 먼저 false로 설정하여 추가 요청 방지
+		this.isConnected = false;
+		this.networkActivity.isActive = false;
+		this.networkActivity.lastRequestTime = null;
+
+		// 3. 세션 종료 (타임아웃 설정)
 		if (this.session) {
 			try {
 				console.log('🛑 [DISCONNECT] Disconnecting session...');
-				await this.session.disconnect();
+				
+				// 타임아웃 설정 (5초 내에 종료되지 않으면 강제 종료)
+				const disconnectTimeout = setTimeout(() => {
+					console.warn('⚠️ [DISCONNECT] Session disconnect timeout, forcing cleanup...');
+					if (this.session) {
+						// 세션 객체 강제 정리
+						this.session = null;
+					}
+				}, 5000);
+
+				// 세션 종료 시도
+				await Promise.race([
+					this.session.disconnect(),
+					new Promise((_, reject) => 
+						setTimeout(() => reject(new Error('Disconnect timeout')), 5000)
+					)
+				]).catch((err) => {
+					console.warn('⚠️ [DISCONNECT] Disconnect timeout or error, forcing cleanup:', err.message);
+				});
+
+				clearTimeout(disconnectTimeout);
 				console.log('✅ [DISCONNECT] Session disconnected successfully');
 			} catch (err) {
 				console.error('❌ [DISCONNECT] Error disconnecting session:', err);
 				// 에러가 발생해도 계속 진행
 			}
 			
-			// 세션 객체 정리
+			// 세션 객체 정리 (이벤트 리스너도 함께 정리됨)
 			this.session = null;
 			console.log('✅ [DISCONNECT] Session object cleared');
 		}
 
-		// 3. Agent 정리
+		// 4. Agent 정리
 		if (this.agent) {
 			this.agent = null;
 			console.log('✅ [DISCONNECT] Agent object cleared');
 		}
 
-		// 4. 상태 초기화
-		this.isConnected = false;
+		// 5. 상태 초기화
 		this.conversationHistory = [];
 		this.currentAssistantMessage = null;
 		this.lastDisconnectTime = new Date().toISOString();
-		
-		// 5. 네트워크 활동 모니터링 중지
-		this.networkActivity.isActive = false;
-		this.networkActivity.lastRequestTime = null;
 
 		const disconnectDuration = Date.now() - disconnectStartTime;
 		console.log(`✅ [DISCONNECT] Disconnect completed in ${disconnectDuration}ms`);

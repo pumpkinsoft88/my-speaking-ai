@@ -27,13 +27,18 @@ CREATE INDEX IF NOT EXISTS idx_test_table_created_at ON test_table(created_at);
 -- CREATE POLICY "Allow public delete access" ON test_table FOR DELETE USING (true);
 
 -- 5. updated_at 자동 업데이트 함수 (선택사항)
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
+-- 보안이 강화된 버전 (mutable search_path 경고 해결)
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- 6. updated_at 트리거 생성
 CREATE TRIGGER update_test_table_updated_at

@@ -233,6 +233,11 @@
 		isDisconnecting = true;
 		console.log('🛑 [UI] Stop conversation requested');
 
+		// 즉시 UI 상태 업데이트 (연결 상태를 false로 설정)
+		isConnected = false;
+		isSpeaking = false;
+		isListening = false;
+
 		try {
 			// 네트워크 활동 모니터링 중지
 			if (activityCheckInterval) {
@@ -240,42 +245,53 @@
 				activityCheckInterval = null;
 			}
 
-			// 종료 전 네트워크 활동 상태 저장
-			networkActivity = realtimeClient.getNetworkActivity();
-			
-			// 실제 종료 수행
-			const verification = await realtimeClient.disconnect();
+			// 실제 종료 수행 (타임아웃 설정)
+			const disconnectPromise = realtimeClient.disconnect();
+			const timeoutPromise = new Promise((_, reject) => 
+				setTimeout(() => reject(new Error('Disconnect timeout')), 10000)
+			);
+
+			const verification = await Promise.race([disconnectPromise, timeoutPromise])
+				.catch((err) => {
+					console.warn('⚠️ [UI] Disconnect timeout or error:', err.message);
+					// 타임아웃이 발생해도 강제로 정리
+					return {
+						verified: false,
+						checks: { timeout: true },
+						timestamp: new Date().toISOString()
+					};
+				});
+
 			disconnectVerification = verification;
 			
 			console.log('✅ [UI] Disconnect completed, verification:', verification);
 			
-			// 종료 후 주기적으로 네트워크 활동 확인 (5초, 10초, 15초)
-			const checkTimes = [3000, 5000, 10000, 15000];
-			checkTimes.forEach((delay) => {
-				setTimeout(() => {
-					if (realtimeClient) {
-						const finalActivity = realtimeClient.getNetworkActivity();
-						console.log(`🔍 [UI] Network activity check after ${delay}ms:`, finalActivity);
-						networkActivity = finalActivity;
-					} else {
-						// 클라이언트가 없으면 활동 없음으로 설정
-						networkActivity = {
-							isActive: false,
-							hasRecentActivity: false,
-							requests: [],
-							lastRequestTime: null
-						};
-					}
-				}, delay);
-			});
-
+			// 클라이언트 정리
+			realtimeClient = null;
+			conversationHistory = [];
+			
+			// 네트워크 활동 초기화
+			networkActivity = {
+				isActive: false,
+				hasRecentActivity: false,
+				requests: [],
+				lastRequestTime: null
+			};
+		} catch (err) {
+			console.error('❌ [UI] Error during disconnect:', err);
+			// 에러가 발생해도 강제로 정리
 			realtimeClient = null;
 			isConnected = false;
 			conversationHistory = [];
 			isSpeaking = false;
 			isListening = false;
-		} catch (err) {
-			console.error('❌ [UI] Error during disconnect:', err);
+			networkActivity = {
+				isActive: false,
+				hasRecentActivity: false,
+				requests: [],
+				lastRequestTime: null
+			};
+		} finally {
 			isDisconnecting = false;
 		}
 	}

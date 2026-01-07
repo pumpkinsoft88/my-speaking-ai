@@ -69,11 +69,16 @@
 				console.error('💡 해결 방법: 네이버 메일 → 환경설정 → POP3/IMAP 설정 → "IMAP/SMTP 사용함" 선택');
 			} else if (authError.message.includes('Error sending confirmation email')) {
 				// 확인 이메일 전송 오류
-				error = '이메일 전송에 실패했습니다. SMTP 설정과 네이버 메일 IMAP/SMTP 사용 설정을 확인해주세요.';
+				error = '이메일 전송에 실패했습니다. Supabase 로그를 확인하거나 SMTP 설정을 재확인해주세요.';
 				console.error('📧 Confirmation Email Error:', authError.message);
 				console.error('💡 해결 방법:');
-				console.error('   1. 네이버 메일 → 환경설정 → POP3/IMAP 설정 → "IMAP/SMTP 사용함" 선택');
-				console.error('   2. Supabase SMTP 설정 확인 (smtp.naver.com, 포트 587)');
+				console.error('   1. Supabase 대시보드 → Logs → Auth Logs에서 정확한 에러 메시지 확인');
+				console.error('   2. Supabase SMTP 설정 확인:');
+				console.error('      - Username: bigbangceo@naver.com (전체 이메일 주소)');
+				console.error('      - Host: smtp.naver.com');
+				console.error('      - Port: 465 또는 587');
+				console.error('   3. 네이버 메일 → 환경설정 → POP3/IMAP 설정 → "IMAP/SMTP 사용함" 선택');
+				console.error('   4. Rate Limits 확인 (시간당 이메일 발신 한도)');
 			} else {
 				error = authError.message || t.error;
 			}
