@@ -143,16 +143,33 @@
 			}
 
 			realtimeClient = new RealtimeClient();
+			
+			// 메시지 업데이트 핸들러 등록
 			realtimeClient.on('message', (messages) => {
 				console.log('📨 [UI] Message update received:', {
 					messageCount: messages.length,
 					messages: messages.map(m => ({
 						role: m.role,
 						contentLength: m.content?.length || 0,
+						textPreview: m.content?.[0]?.text?.substring(0, 50) || '',
 						timestamp: m.timestamp
 					}))
 				});
-				conversationHistory = messages;
+				
+				// Svelte 반응성을 위해 새 배열로 할당 (중요!)
+				conversationHistory = [...messages];
+				
+				console.log('✅ [UI] conversationHistory updated:', {
+					length: conversationHistory.length,
+					firstMessage: conversationHistory[0] ? {
+						role: conversationHistory[0].role,
+						textPreview: conversationHistory[0].content?.[0]?.text?.substring(0, 30) || ''
+					} : null,
+					lastMessage: conversationHistory[conversationHistory.length - 1] ? {
+						role: conversationHistory[conversationHistory.length - 1].role,
+						textPreview: conversationHistory[conversationHistory.length - 1].content?.[0]?.text?.substring(0, 30) || ''
+					} : null
+				});
 			});
 			// 사용자 말하기 상태 업데이트
 			realtimeClient.on('userSpeaking', (speaking) => {

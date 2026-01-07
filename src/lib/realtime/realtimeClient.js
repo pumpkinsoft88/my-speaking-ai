@@ -85,6 +85,13 @@ export class RealtimeClient {
 		// 대화 아이템 추가
 		this.session.on('conversation.item.added', (event) => {
 			this.recordNetworkActivity('conversation.item.added', { itemType: event.item?.type });
+			console.log('📝 [EVENT] conversation.item.added:', {
+				itemType: event.item?.type,
+				role: event.item?.role,
+				hasContent: !!event.item?.content,
+				contentLength: event.item?.content?.length || 0
+			});
+			
 			if (event.item && event.item.type === 'message') {
 				const message = event.item;
 				if (message.role === 'assistant') {
@@ -95,8 +102,11 @@ export class RealtimeClient {
 					};
 					console.log('📝 [RECORD] Assistant message added:', {
 						contentLength: message.content?.length || 0,
-						hasText: message.content?.some(c => c.type === 'text')
+						hasText: message.content?.some(c => c.type === 'text'),
+						content: message.content
 					});
+					// 실시간 업데이트를 위해 즉시 알림
+					this.notifyMessageUpdate();
 				} else if (message.role === 'user') {
 					const userMessage = {
 						role: 'user',
@@ -106,7 +116,8 @@ export class RealtimeClient {
 					this.conversationHistory.push(userMessage);
 					console.log('📝 [RECORD] User message recorded:', {
 						messageCount: this.conversationHistory.length,
-						content: userMessage.content
+						content: userMessage.content,
+						contentLength: userMessage.content?.length || 0
 					});
 					this.notifyMessageUpdate();
 				}
@@ -148,9 +159,13 @@ export class RealtimeClient {
 					if (this.eventHandlers.onAssistantSpeaking) {
 						this.eventHandlers.onAssistantSpeaking(true);
 					}
+					console.log('📝 [STREAM] Assistant message started streaming');
+					// 스트리밍 시작 시 즉시 업데이트
+					this.notifyMessageUpdate();
 				}
 				if (this.currentAssistantMessage.content[0]?.type === 'text') {
 					this.currentAssistantMessage.content[0].text += event.delta;
+					// 실시간 업데이트를 위해 스로틀링 사용
 					this.throttledUpdate();
 				}
 			}
@@ -204,9 +219,10 @@ export class RealtimeClient {
 			clearTimeout(this.updateThrottle);
 		}
 		this.updateThrottle = setTimeout(() => {
+			// 실시간 업데이트를 위해 즉시 호출
 			this.notifyMessageUpdate();
 			this.updateThrottle = null;
-		}, 100);
+		}, 50); // 스로틀 시간을 50ms로 단축하여 더 빠른 업데이트
 	}
 
 	/**
@@ -215,15 +231,33 @@ export class RealtimeClient {
 	notifyMessageUpdate() {
 		if (this.eventHandlers.onMessage) {
 			const messagesCopy = [...this.conversationHistory];
+			// 현재 진행 중인 assistant 메시지도 포함
+			if (this.currentAssistantMessage && this.currentAssistantMessage.content.length > 0) {
+				const hasIncomplete = messagesCopy.some(m => 
+					m.role === 'assistant' && 
+					m.timestamp === this.currentAssistantMessage.timestamp
+				);
+				if (!hasIncomplete) {
+					messagesCopy.push({ ...this.currentAssistantMessage });
+				}
+			}
 			console.log('📢 [UPDATE] Notifying message update:', {
 				messageCount: messagesCopy.length,
+				hasCurrentAssistant: !!this.currentAssistantMessage,
 				messages: messagesCopy.map(m => ({
 					role: m.role,
 					contentLength: m.content?.length || 0,
+					textPreview: m.content?.[0]?.text?.substring(0, 50) || '',
 					timestamp: m.timestamp
 				}))
 			});
-			this.eventHandlers.onMessage(messagesCopy);
+			try {
+				this.eventHandlers.onMessage(messagesCopy);
+			} catch (error) {
+				console.error('❌ [UPDATE] Error calling onMessage handler:', error);
+			}
+		} else {
+			console.warn('⚠️ [UPDATE] onMessage handler not registered');
 		}
 	}
 
@@ -247,8 +281,12 @@ export class RealtimeClient {
 	 * 이벤트 핸들러 등록
 	 */
 	on(event, handler) {
-		if (this.eventHandlers[`on${event.charAt(0).toUpperCase() + event.slice(1)}`] !== undefined) {
-			this.eventHandlers[`on${event.charAt(0).toUpperCase() + event.slice(1)}`] = handler;
+		const handlerKey = `on${event.charAt(0).toUpperCase() + event.slice(1)}`;
+		if (this.eventHandlers[handlerKey] !== undefined) {
+			this.eventHandlers[handlerKey] = handler;
+			console.log(`✅ [EVENT] Registered handler for '${event}' -> '${handlerKey}'`);
+		} else {
+			console.warn(`⚠️ [EVENT] Handler key '${handlerKey}' not found in eventHandlers. Available keys:`, Object.keys(this.eventHandlers));
 		}
 	}
 
