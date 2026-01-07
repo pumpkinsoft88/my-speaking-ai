@@ -253,7 +253,7 @@
 				try {
 					console.log('🔍 [UI] Searching for audio streams...');
 					
-					// 1. 오디오 중지 메서드 시도
+					// 1. 오디오 중지 메서드 시도 (모든 가능한 메서드)
 					if (typeof session.stopAudio === 'function') {
 						session.stopAudio();
 						console.log('✅ [UI] Audio stopped via stopAudio()');
@@ -265,6 +265,18 @@
 					if (typeof session.closeAudio === 'function') {
 						session.closeAudio();
 						console.log('✅ [UI] Audio closed via closeAudio()');
+					}
+					if (typeof session.stop === 'function') {
+						session.stop();
+						console.log('✅ [UI] Session stopped via stop()');
+					}
+					if (typeof session.close === 'function') {
+						session.close();
+						console.log('✅ [UI] Session closed via close()');
+					}
+					if (typeof session.destroy === 'function') {
+						session.destroy();
+						console.log('✅ [UI] Session destroyed via destroy()');
 					}
 					
 					// 2. 알려진 경로의 오디오 스트림 찾기

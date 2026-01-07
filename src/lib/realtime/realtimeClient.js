@@ -231,6 +231,27 @@ export class RealtimeClient {
 			try {
 				console.log('🔍 [DISCONNECT] Searching for audio streams...');
 				
+				// 0. 브라우저의 모든 활성 MediaStream 중지 (최우선!)
+				if (typeof navigator !== 'undefined' && navigator.mediaDevices) {
+					try {
+						// getUserMedia로 생성된 모든 스트림 추적 및 중지
+						// 브라우저의 모든 활성 오디오 트랙 찾기
+						if (navigator.mediaDevices.enumerateDevices) {
+							navigator.mediaDevices.enumerateDevices().then(devices => {
+								console.log('🔍 [DISCONNECT] Found devices:', devices.length);
+							}).catch(() => {});
+						}
+						
+						// 모든 활성 MediaStream 찾기 (전역 범위)
+						if (window.getUserMedia || navigator.getUserMedia) {
+							// 이전에 생성된 스트림들을 추적할 수 없으므로
+							// 세션 내부에서 찾아야 함
+						}
+					} catch (browserErr) {
+						console.warn('⚠️ [DISCONNECT] Could not access browser media devices:', browserErr);
+					}
+				}
+				
 				// 1. 오디오 입력/출력 중지 메서드 시도
 				if (typeof sessionRef.stopAudio === 'function') {
 					sessionRef.stopAudio();
@@ -243,6 +264,18 @@ export class RealtimeClient {
 				if (typeof sessionRef.closeAudio === 'function') {
 					sessionRef.closeAudio();
 					console.log('✅ [DISCONNECT] Audio closed via closeAudio()');
+				}
+				if (typeof sessionRef.stop === 'function') {
+					sessionRef.stop();
+					console.log('✅ [DISCONNECT] Session stopped via stop()');
+				}
+				if (typeof sessionRef.close === 'function') {
+					sessionRef.close();
+					console.log('✅ [DISCONNECT] Session closed via close()');
+				}
+				if (typeof sessionRef.destroy === 'function') {
+					sessionRef.destroy();
+					console.log('✅ [DISCONNECT] Session destroyed via destroy()');
 				}
 				
 				// 2. 알려진 경로의 오디오 스트림 찾기
@@ -265,7 +298,8 @@ export class RealtimeClient {
 				const foundStreams = new Set();
 				const visited = new WeakSet();
 				
-				function findMediaStreams(obj, depth = 0) {
+				// findMediaStreams 함수 정의 (호이스팅을 위해 함수 선언 사용)
+				const findMediaStreams = (obj, depth = 0) => {
 					if (!obj || depth > 5 || visited.has(obj)) return;
 					if (typeof obj !== 'object') return;
 					
@@ -312,7 +346,7 @@ export class RealtimeClient {
 					} catch (e) {
 						// 객체 순회 중 에러 무시
 					}
-				}
+				};
 				
 				// 알려진 경로와 세션 전체 검색
 				for (const stream of knownPaths) {
@@ -368,10 +402,40 @@ export class RealtimeClient {
 				// 5. 브라우저의 모든 활성 MediaStream 중지 (최후의 수단)
 				if (typeof navigator !== 'undefined' && navigator.mediaDevices) {
 					try {
-						// getUserMedia로 생성된 모든 스트림은 추적이 어려우므로
-						// 브라우저의 활성 오디오 컨텍스트를 확인하고 중지
-						const activeAudioContexts = [];
-						// AudioContext를 찾을 수 없으므로 이 부분은 건너뜀
+						// 모든 활성 오디오 컨텍스트 찾기 및 중지
+						// AudioContext는 전역으로 추적하기 어려우므로
+						// 세션 내부에서 찾은 스트림들을 중지하는 것이 더 효과적
+						
+						// 추가: 세션 객체의 모든 속성을 다시 한 번 검색하여
+						// 놓친 오디오 관련 객체 찾기
+						const allProperties = [];
+						try {
+							// 세션 객체의 모든 속성 이름 수집
+							for (const key in sessionRef) {
+								if (key.toLowerCase().includes('audio') || 
+								    key.toLowerCase().includes('stream') ||
+								    key.toLowerCase().includes('media') ||
+								    key.toLowerCase().includes('track')) {
+									allProperties.push(key);
+									try {
+										const value = sessionRef[key];
+										if (value && typeof value === 'object') {
+											// MediaStream인지 확인
+											if (value instanceof MediaStream || 
+											    (value.getTracks && typeof value.getTracks === 'function')) {
+												foundStreams.add(value);
+												console.log(`✅ [DISCONNECT] Found stream in property: ${key}`);
+											}
+										}
+									} catch (e) {
+										// 접근 불가능한 속성 무시
+									}
+								}
+							}
+							console.log(`🔍 [DISCONNECT] Searched ${allProperties.length} audio-related properties`);
+						} catch (propErr) {
+							console.warn('⚠️ [DISCONNECT] Error searching properties:', propErr);
+						}
 					} catch (browserErr) {
 						console.warn('⚠️ [DISCONNECT] Could not access browser media devices:', browserErr);
 					}
@@ -380,16 +444,17 @@ export class RealtimeClient {
 				console.error('❌ [DISCONNECT] Could not stop audio:', audioErr);
 			}
 			
-			// 세션 disconnect() 먼저 호출 (오디오 스트림 중지를 위해 - 가장 중요!)
-			// disconnect()가 내부적으로 오디오를 중지하므로 먼저 호출
+			// 세션 disconnect() 호출 (오디오 스트림 중지를 위해 - 가장 중요!)
+			// disconnect()가 내부적으로 오디오를 중지하므로 호출
+			// 하지만 오디오 중지 로직을 먼저 실행했으므로, disconnect()는 추가 보장 역할
 			try {
 				if (sessionRef && typeof sessionRef.disconnect === 'function') {
 					console.log('🛑 [DISCONNECT] Calling session.disconnect() to stop audio and close connection...');
-					// 매우 짧은 타임아웃 (500ms) - 빠른 종료
+					// 매우 짧은 타임아웃 (300ms) - 빠른 종료
 					await Promise.race([
 						sessionRef.disconnect(),
 						new Promise((_, reject) => 
-							setTimeout(() => reject(new Error('Disconnect timeout')), 500)
+							setTimeout(() => reject(new Error('Disconnect timeout')), 300)
 						)
 					]).catch((err) => {
 						console.warn('⚠️ [DISCONNECT] Disconnect timeout (continuing with force cleanup):', err.message);
@@ -397,7 +462,26 @@ export class RealtimeClient {
 					console.log('✅ [DISCONNECT] Session.disconnect() completed');
 					
 					// disconnect() 후에도 오디오가 남아있을 수 있으므로 다시 확인
-					// (위의 오디오 중지 로직이 이미 실행되었으므로 추가 확인만)
+					// 오디오 스트림 재검색 및 중지
+					try {
+						// 세션 객체가 여전히 존재하면 다시 오디오 스트림 검색
+						if (sessionRef && typeof sessionRef === 'object') {
+							const postDisconnectStreams = new Set();
+							findMediaStreams(sessionRef);
+							for (const stream of postDisconnectStreams) {
+								if (stream && stream.getTracks) {
+									stream.getTracks().forEach(track => {
+										if (track && typeof track.stop === 'function' && track.readyState !== 'ended') {
+											track.stop();
+											console.log('✅ [DISCONNECT] Post-disconnect audio track stopped');
+										}
+									});
+								}
+							}
+						}
+					} catch (postErr) {
+						console.warn('⚠️ [DISCONNECT] Error in post-disconnect cleanup:', postErr);
+					}
 				}
 			} catch (err) {
 				console.warn('⚠️ [DISCONNECT] Error calling disconnect():', err);
