@@ -84,7 +84,7 @@
 					class="group relative flex flex-col items-center gap-2 rounded-2xl border-2 p-3 sm:p-4 transition-all hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 {level === lvl.value
 						? 'border-purple-500 bg-gradient-to-br from-purple-50 to-pink-50 shadow-md'
 						: 'border-slate-200 bg-white hover:border-purple-300'}"
-					on:click={() => (level = lvl.value)}
+					onclick={() => (level = lvl.value)}
 				>
 					<span class="text-2xl sm:text-3xl">{lvl.icon}</span>
 					<span class="text-xs sm:text-sm font-bold {level === lvl.value ? 'text-purple-700' : 'text-slate-700'}">
@@ -114,7 +114,7 @@
 					class="group relative flex items-center gap-2 sm:gap-3 rounded-2xl border-2 p-3 sm:p-4 transition-all hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 {displayMode === mode.value
 						? 'border-indigo-500 bg-gradient-to-br from-indigo-50 to-blue-50 shadow-md'
 						: 'border-slate-200 bg-white hover:border-indigo-300'}"
-					on:click={() => (displayMode = mode.value)}
+					onclick={() => (displayMode = mode.value)}
 				>
 					<span class="text-xl sm:text-2xl flex-shrink-0">{mode.icon}</span>
 					<div class="flex-1 text-left min-w-0">
@@ -146,7 +146,7 @@
 					class="group relative flex flex-col items-center gap-2 rounded-2xl border-2 p-3 sm:p-4 transition-all hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 {practiceMode === mode.value
 						? 'border-emerald-500 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-md'
 						: 'border-slate-200 bg-white hover:border-emerald-300'}"
-					on:click={() => {
+					onclick={() => {
 						practiceMode = mode.value;
 						if (mode.value === 'free') {
 							practiceContent = '';
@@ -195,7 +195,7 @@
 				<button
 					type="button"
 					disabled={disabled}
-					on:click={() => (showRecommendations = !showRecommendations)}
+					onclick={() => (showRecommendations = !showRecommendations)}
 					class="flex items-center gap-2 text-xs font-semibold text-emerald-600 hover:text-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					<svg class="h-4 w-4 transition-transform {showRecommendations ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -212,7 +212,7 @@
 								<button
 									type="button"
 									disabled={disabled}
-									on:click={() => insertRecommended(item)}
+									onclick={() => insertRecommended(item)}
 									class="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 								>
 									{item}
@@ -241,7 +241,7 @@
 							class="group relative flex flex-col items-center gap-1 rounded-xl border-2 p-2 sm:p-3 transition-all hover:scale-105 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 {tutorPersonality === personality.value
 								? 'border-amber-500 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm'
 								: 'border-slate-200 bg-white hover:border-amber-300'}"
-							on:click={() => (tutorPersonality = personality.value)}
+							onclick={() => (tutorPersonality = personality.value)}
 						>
 							<span class="text-xl sm:text-2xl">{personality.icon}</span>
 							<span class="text-xs font-bold {tutorPersonality === personality.value ? 'text-amber-700' : 'text-slate-700'}">
@@ -271,7 +271,7 @@
 							class="group relative flex flex-col items-center gap-1 rounded-xl border-2 p-2 sm:p-3 transition-all hover:scale-105 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 {correctionStyle === style.value
 								? 'border-amber-500 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm'
 								: 'border-slate-200 bg-white hover:border-amber-300'}"
-							on:click={() => (correctionStyle = style.value)}
+							onclick={() => (correctionStyle = style.value)}
 						>
 							<span class="text-xl sm:text-2xl">{style.icon}</span>
 							<span class="text-xs font-bold {correctionStyle === style.value ? 'text-amber-700' : 'text-slate-700'}">
@@ -301,7 +301,7 @@
 							class="group relative flex flex-col items-center gap-1 rounded-xl border-2 p-2 sm:p-3 transition-all hover:scale-105 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 {responseLength === length.value
 								? 'border-amber-500 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm'
 								: 'border-slate-200 bg-white hover:border-amber-300'}"
-							on:click={() => (responseLength = length.value)}
+							onclick={() => (responseLength = length.value)}
 						>
 							<span class="text-xl sm:text-2xl">{length.icon}</span>
 							<span class="text-xs font-bold {responseLength === length.value ? 'text-amber-700' : 'text-slate-700'}">
@@ -331,7 +331,7 @@
 							class="group relative flex flex-col items-center gap-1 rounded-xl border-2 p-2 sm:p-3 transition-all hover:scale-105 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 {feedbackStyle === style.value
 								? 'border-amber-500 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm'
 								: 'border-slate-200 bg-white hover:border-amber-300'}"
-							on:click={() => (feedbackStyle = style.value)}
+							onclick={() => (feedbackStyle = style.value)}
 						>
 							<span class="text-xl sm:text-2xl">{style.icon}</span>
 							<span class="text-xs font-bold {feedbackStyle === style.value ? 'text-amber-700' : 'text-slate-700'}">
@@ -360,7 +360,7 @@
 						class="flex items-center gap-2 rounded-xl border-2 p-3 transition-all hover:scale-105 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 {includeKoreanTranslation
 							? 'border-amber-500 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm'
 							: 'border-slate-200 bg-white hover:border-amber-300'}"
-						on:click={() => (includeKoreanTranslation = true)}
+						onclick={() => (includeKoreanTranslation = true)}
 					>
 						<span class="text-xl">✅</span>
 						<span class="text-xs sm:text-sm font-bold {includeKoreanTranslation ? 'text-amber-700' : 'text-slate-700'}">
@@ -373,7 +373,7 @@
 						class="flex items-center gap-2 rounded-xl border-2 p-3 transition-all hover:scale-105 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 {!includeKoreanTranslation
 							? 'border-amber-500 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm'
 							: 'border-slate-200 bg-white hover:border-amber-300'}"
-						on:click={() => (includeKoreanTranslation = false)}
+						onclick={() => (includeKoreanTranslation = false)}
 					>
 						<span class="text-xl">❌</span>
 						<span class="text-xs sm:text-sm font-bold {!includeKoreanTranslation ? 'text-amber-700' : 'text-slate-700'}">

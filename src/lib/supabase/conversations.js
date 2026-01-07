@@ -152,25 +152,42 @@ export async function saveConversation(conversationData) {
 			? firstUserMessage.content[0].text.substring(0, 50) + (firstUserMessage.content[0].text.length > 50 ? '...' : '')
 			: `대화 ${new Date().toLocaleString('ko-KR')}`;
 
+		// 저장할 데이터 준비
+		const insertData = {
+			user_id: user.id,
+			title: title,
+			messages: validatedMessages,
+			language: conversationData.language || 'traditional',
+			level: conversationData.level || 'beginner',
+			practice_mode: conversationData.practiceMode || 'free',
+			practice_content: conversationData.practiceContent || null
+		};
+
 		console.log('💾 대화 저장 중...', {
 			user_id: user.id,
 			title: title,
 			original_message_count: conversationData.messages.length,
 			validated_message_count: validatedMessages.length,
-			messages_sample: validatedMessages.slice(0, 2)
+			insert_data: {
+				...insertData,
+				messages: `[${validatedMessages.length} messages]` // 메시지 내용은 로그에서 제외
+			}
 		});
+
+		// 테이블 존재 확인 (디버깅용)
+		const { data: tableCheck, error: tableCheckError } = await supabase
+			.from('conversations')
+			.select('id')
+			.limit(0);
+
+		if (tableCheckError && tableCheckError.code !== 'PGRST116') {
+			console.error('❌ conversations 테이블 접근 오류:', tableCheckError);
+			throw new Error('conversations 테이블에 접근할 수 없습니다: ' + tableCheckError.message);
+		}
 
 		const { data, error } = await supabase
 			.from('conversations')
-			.insert({
-				user_id: user.id,
-				title: title,
-				messages: validatedMessages,
-				language: conversationData.language || 'traditional',
-				level: conversationData.level || 'beginner',
-				practice_mode: conversationData.practiceMode || 'free',
-				practice_content: conversationData.practiceContent || null
-			})
+			.insert(insertData)
 			.select()
 			.single();
 
@@ -182,17 +199,39 @@ export async function saveConversation(conversationData) {
 				hint: error.hint,
 				code: error.code,
 				user_id: user.id,
-				message_count: validatedMessages.length
+				message_count: validatedMessages.length,
+				insert_data_keys: Object.keys(insertData)
 			});
 
 			// RLS 정책 오류인 경우 명확한 메시지 제공
 			if (error.code === '42501' || error.message?.includes('permission') || error.message?.includes('policy')) {
-				throw new Error('대화 저장 권한이 없습니다. RLS 정책을 확인해주세요. 에러 코드: ' + error.code);
+				const errorMsg = '대화 저장 권한이 없습니다. RLS 정책을 확인해주세요. 에러 코드: ' + error.code;
+				console.error('🔒 RLS 정책 오류:', {
+					user_id: user.id,
+					auth_uid: 'auth.uid() 확인 필요',
+					suggestion: 'fix_table_structure.sql 스크립트를 실행하세요.'
+				});
+				throw new Error(errorMsg);
 			}
 
 			// 외래키 제약조건 오류인 경우
-			if (error.code === '23503' || error.message?.includes('foreign key')) {
-				throw new Error('프로필이 존재하지 않습니다. 프로필을 먼저 생성해주세요. 에러 코드: ' + error.code);
+			if (error.code === '23503' || error.message?.includes('foreign key') || error.message?.includes('violates foreign key constraint')) {
+				const errorMsg = '프로필이 존재하지 않습니다. 프로필을 먼저 생성해주세요. 에러 코드: ' + error.code;
+				console.error('🔗 외래키 제약조건 오류:', {
+					user_id: user.id,
+					suggestion: 'fix_table_structure.sql 스크립트를 실행하여 프로필을 생성하세요.'
+				});
+				throw new Error(errorMsg);
+			}
+
+			// 컬럼이 존재하지 않는 경우
+			if (error.code === '42703' || error.message?.includes('column') || error.message?.includes('does not exist')) {
+				const errorMsg = '테이블 구조가 일치하지 않습니다. fix_table_structure.sql 스크립트를 실행하세요. 에러 코드: ' + error.code;
+				console.error('📋 테이블 구조 오류:', {
+					error_message: error.message,
+					suggestion: 'fix_table_structure.sql 스크립트를 실행하여 테이블 구조를 수정하세요.'
+				});
+				throw new Error(errorMsg);
 			}
 
 			throw error;

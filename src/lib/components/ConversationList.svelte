@@ -218,7 +218,7 @@
 			💬 저장된 대화
 		</h2>
 		<button
-			on:click={loadConversations}
+			onclick={loadConversations}
 			class="rounded-xl border-2 border-purple-200/50 bg-gradient-to-r from-white/80 to-purple-50/50 backdrop-blur-sm px-4 py-2 text-xs font-semibold text-slate-700 shadow-md transition-all hover:scale-105 hover:border-purple-400 hover:shadow-lg"
 			disabled={loading}
 		>
@@ -249,10 +249,10 @@
 			{#each conversations as conversation}
 				<div
 					class="group relative flex flex-col sm:flex-row items-start sm:items-center gap-3 rounded-2xl border-2 border-purple-200/50 bg-gradient-to-br from-white/70 via-purple-50/30 to-pink-50/30 backdrop-blur-xl p-4 transition-all hover:shadow-xl hover:scale-[1.01] cursor-pointer"
-					on:click={() => onSelectConversation && onSelectConversation(conversation.id)}
+					onclick={() => onSelectConversation && onSelectConversation(conversation.id)}
 					role="button"
 					tabindex="0"
-					on:keydown={(e) => e.key === 'Enter' && onSelectConversation && onSelectConversation(conversation.id)}
+					onkeydown={(e) => e.key === 'Enter' && onSelectConversation && onSelectConversation(conversation.id)}
 				>
 					<!-- 대화 정보 -->
 					<div class="flex-1 min-w-0">
@@ -261,7 +261,7 @@
 								{conversation.title || '제목 없음'}
 							</h3>
 							<button
-								on:click|stopPropagation={(e) => handleDelete(conversation.id, e)}
+								onclick={(e) => { e.stopPropagation(); handleDelete(conversation.id, e); }}
 								class="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-red-100 text-red-500"
 								disabled={deletingId === conversation.id}
 								aria-label="삭제"

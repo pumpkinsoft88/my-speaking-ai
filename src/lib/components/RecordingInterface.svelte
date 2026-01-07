@@ -11,14 +11,14 @@
 	} = $props();
 
 	let recorder = null;
-	let isRecording = false;
-	let recordingTime = 0;
-	let audioUrl = '';
-	let audioElement = null;
-	let isPlaying = false;
-	let fileName = 'Voice waveform';
-	let analyser = null;
-	let dataArray = null;
+	let isRecording = $state(false);
+	let recordingTime = $state(0);
+	let audioUrl = $state('');
+	let audioElement = $state(null);
+	let isPlaying = $state(false);
+	let fileName = $state('Voice waveform');
+	let analyser = $state(null);
+	let dataArray = $state(null);
 
 	onMount(() => {
 		recorder = new AudioRecorder();
@@ -173,7 +173,7 @@
 	<!-- 녹음 버튼 -->
 	<button
 		class="mx-auto flex w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 px-6 py-4 text-lg font-semibold text-white shadow-lg shadow-red-500/30 transition-all hover:scale-105 hover:shadow-xl hover:shadow-red-500/40 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-300"
-		on:click={isRecording ? stopRecording : startRecording}
+		onclick={() => isRecording ? stopRecording() : startRecording()}
 		aria-label={isRecording ? '녹음 중지' : '녹음 시작'}
 	>
 		<svg
@@ -203,18 +203,18 @@
 				class="w-full"
 				controls
 				src={audioUrl}
-				on:ended={() => (isPlaying = false)}
+				onended={() => (isPlaying = false)}
 			></audio>
 			<div class="flex gap-3">
 				<button
 					class="flex-1 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2.5 text-sm font-medium text-white shadow-md transition hover:scale-105 hover:shadow-lg active:scale-95"
-					on:click={saveAudio}
+					onclick={saveAudio}
 				>
 					저장
 				</button>
 				<button
 					class="flex-1 rounded-lg bg-gradient-to-r from-slate-400 to-slate-500 px-4 py-2.5 text-sm font-medium text-white shadow-md transition hover:scale-105 hover:shadow-lg active:scale-95"
-					on:click={deleteRecording}
+					onclick={deleteRecording}
 				>
 					삭제
 				</button>

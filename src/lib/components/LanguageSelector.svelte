@@ -165,7 +165,7 @@
 	<button
 		bind:this={buttonElement}
 		class="group flex items-center justify-center sm:justify-start gap-2 sm:gap-3 rounded-xl border-2 border-purple-200/50 bg-gradient-to-r from-white/80 to-purple-50/50 backdrop-blur-sm px-6 sm:px-7 py-3.5 sm:py-4 min-h-[52px] sm:min-h-[56px] text-base sm:text-lg font-semibold text-slate-700 shadow-lg transition-all hover:scale-105 hover:border-purple-400 hover:shadow-xl hover:shadow-purple-500/30 w-full sm:w-auto whitespace-nowrap"
-		on:click={() => (showDropdown = !showDropdown)}
+		onclick={() => (showDropdown = !showDropdown)}
 	>
 		<span class="text-2xl sm:text-3xl transition-transform group-hover:scale-110 flex-shrink-0">{languages.find((l) => l.code === currentLanguage)?.flag}</span>
 		<span class="hidden sm:inline">{languages.find((l) => l.code === currentLanguage)?.name}</span>
@@ -197,7 +197,7 @@
 					lang.code
 						? 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700'
 						: 'text-slate-700'}"
-					on:click={() => handleLanguageChange(lang.code)}
+					onclick={() => handleLanguageChange(lang.code)}
 				>
 					<span class="text-2xl sm:text-3xl transition-transform group-hover:scale-125 flex-shrink-0">{lang.flag}</span>
 					<span class="flex-1 min-w-0">{lang.name}</span>

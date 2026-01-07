@@ -14,9 +14,9 @@
 
 	let t = $derived(translations[currentLanguage]);
 
-	let conversation = null;
-	let loading = true;
-	let displayMode = 'dual'; // 'dual' or 'chinese-only'
+	let conversation = $state(null);
+	let loading = $state(true);
+	let displayMode = $state('dual'); // 'dual' or 'chinese-only'
 
 	// 언어별 레벨/모드 표시 텍스트
 	const levelLabels = {
@@ -70,9 +70,11 @@
 		});
 	}
 
-	$: if (conversationId) {
-		loadConversation();
-	}
+	$effect(() => {
+		if (conversationId) {
+			loadConversation();
+		}
+	});
 </script>
 
 {#if conversationId}
@@ -102,7 +104,7 @@
 					{/if}
 				</div>
 				<button
-					on:click={() => onClose && onClose()}
+					onclick={() => onClose && onClose()}
 					class="flex-shrink-0 rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
 					aria-label="닫기"
 				>
@@ -129,13 +131,13 @@
 						<div class="flex items-center gap-2 mb-4">
 							<span class="text-xs font-medium text-slate-600">표시 모드:</span>
 							<button
-								on:click={() => displayMode = 'dual'}
+								onclick={() => displayMode = 'dual'}
 								class="rounded-lg px-3 py-1 text-xs font-medium transition-all {displayMode === 'dual' ? 'bg-purple-500 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
 							>
 								이중 언어
 							</button>
 							<button
-								on:click={() => displayMode = 'chinese-only'}
+								onclick={() => displayMode = 'chinese-only'}
 								class="rounded-lg px-3 py-1 text-xs font-medium transition-all {displayMode === 'chinese-only' ? 'bg-purple-500 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
 							>
 								중국어만
