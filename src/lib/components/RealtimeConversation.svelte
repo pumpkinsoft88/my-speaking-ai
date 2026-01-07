@@ -11,6 +11,7 @@
 
 	export let onError = null;
 	export let currentLanguage = 'traditional';
+	export let onConversationSaved = null; // 대화 저장 성공 시 호출될 콜백
 	
 	let t = translations[currentLanguage];
 	
@@ -500,6 +501,10 @@
 				setTimeout(() => {
 					saveSuccess = false;
 				}, 3000);
+				// 저장 성공 콜백 호출
+				if (onConversationSaved) {
+					onConversationSaved();
+				}
 			}
 		} catch (err) {
 			console.error('대화 저장 중 오류:', err);

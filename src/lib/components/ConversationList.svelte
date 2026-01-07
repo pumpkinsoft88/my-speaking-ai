@@ -8,6 +8,11 @@
 	export let onSelectConversation = null;
 	export let onError = null;
 
+	// 외부에서 호출할 수 있는 새로고침 함수
+	export function refresh() {
+		loadConversations();
+	}
+
 	let t = translations[currentLanguage];
 	
 	$: {

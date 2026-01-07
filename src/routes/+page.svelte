@@ -16,6 +16,7 @@
 	let showScrollTop = $state(false);
 	let activeTab = $state('conversation'); // 'conversation' or 'history'
 	let selectedConversationId = $state(null);
+	let conversationListRef = $state(null); // ConversationList 컴포넌트 참조
 
 	function handleError(message) {
 		error = message;
@@ -30,6 +31,15 @@
 
 	function handleCloseDetail() {
 		selectedConversationId = null;
+	}
+
+	function handleConversationSaved() {
+		// 대화 저장 성공 시 목록 새로고침
+		if (conversationListRef) {
+			conversationListRef.refresh();
+		}
+		// 대화 기록 탭으로 자동 전환 (선택사항)
+		// activeTab = 'history';
 	}
 
 	function handleLanguageChange(langCode) {
@@ -53,6 +63,18 @@
 			showScrollTop = window.scrollY > 300;
 		}
 	}
+
+	// 탭이 'history'로 변경될 때 목록 새로고침
+	$effect(() => {
+		if (activeTab === 'history' && conversationListRef) {
+			// 약간의 지연을 두어 컴포넌트가 완전히 마운트된 후 새로고침
+			setTimeout(() => {
+				if (conversationListRef) {
+					conversationListRef.refresh();
+				}
+			}, 100);
+		}
+	});
 
 	onMount(() => {
 		if (browser) {
@@ -181,9 +203,14 @@
 			class="mx-auto w-full max-w-2xl rounded-3xl bg-white/70 backdrop-blur-xl shadow-2xl shadow-purple-500/10 border-2 border-white/50 p-4 sm:p-6 lg:p-8 transition-all hover:shadow-3xl hover:shadow-purple-500/20"
 		>
 			{#if activeTab === 'conversation'}
-				<RealtimeConversation onError={handleError} {currentLanguage} />
+				<RealtimeConversation 
+					onError={handleError} 
+					{currentLanguage}
+					onConversationSaved={handleConversationSaved}
+				/>
 			{:else if activeTab === 'history' && $authStore.user}
 				<ConversationList 
+					bind:this={conversationListRef}
 					{currentLanguage} 
 					onSelectConversation={handleSelectConversation}
 					onError={handleError}
