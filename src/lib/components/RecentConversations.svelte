@@ -39,11 +39,31 @@
 	async function loadRecentConversations() {
 		loading = true;
 		try {
+			console.log('📋 최근 대화 로드 시작...');
 			const { data, error } = await getConversations({ limit });
-			if (error) throw error;
+			
+			if (error) {
+				console.error('❌ 최근 대화 로드 실패:', {
+					error: error,
+					message: error.message,
+					details: error.details,
+					hint: error.hint,
+					code: error.code
+				});
+				throw error;
+			}
+			
+			console.log('✅ 최근 대화 로드 성공:', {
+				count: data?.length || 0
+			});
+			
 			conversations = data || [];
 		} catch (err) {
-			console.error('최근 대화 로드 오류:', err);
+			console.error('❌ 최근 대화 로드 오류:', {
+				error: err,
+				message: err.message,
+				stack: err.stack
+			});
 			conversations = [];
 		} finally {
 			loading = false;
