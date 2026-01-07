@@ -7,6 +7,7 @@
 	import BillingStatus from './BillingStatus.svelte';
 	import PracticeSettings from './PracticeSettings.svelte';
 	import { translations } from '$lib/i18n/translations.js';
+	import { saveConversation } from '$lib/supabase/conversations.js';
 
 	export let onError = null;
 	export let currentLanguage = 'traditional';
@@ -26,9 +27,11 @@
 
 	let isConnected = false;
 	let isConnecting = false;
-	let isDisconnecting = false;
-	let conversationHistory = [];
-	let realtimeClient = null;
+		let isDisconnecting = false;
+		let conversationHistory = [];
+		let realtimeClient = null;
+		let isSaving = false; // 대화 저장 중 플래그
+		let saveSuccess = false; // 저장 성공 플래그
 	let isSpeaking = false; // 사용자가 말하고 있는지
 	let isListening = false; // AI가 말하고 있는지
 	let disconnectVerification = null; // 종료 검증 결과
@@ -443,6 +446,11 @@
 
 			disconnectVerification = verification;
 			console.log('✅ [UI] Disconnect completed, verification:', verification);
+			
+			// 대화 저장 (메시지가 있는 경우에만)
+			if (conversationHistory.length > 0) {
+				await saveCurrentConversation();
+			}
 		} catch (err) {
 			console.error('❌ [UI] Error during disconnect:', err);
 		} finally {
@@ -459,6 +467,47 @@
 			};
 			
 			isDisconnecting = false;
+		}
+	}
+
+	/**
+	 * 현재 대화를 데이터베이스에 저장
+	 */
+	async function saveCurrentConversation() {
+		if (isSaving || conversationHistory.length === 0) return;
+		
+		isSaving = true;
+		saveSuccess = false;
+		
+		try {
+			const { data, error } = await saveConversation({
+				messages: conversationHistory,
+				language: currentLanguage,
+				level: level,
+				practiceMode: practiceMode,
+				practiceContent: practiceContent || null
+			});
+			
+			if (error) {
+				console.error('대화 저장 실패:', error);
+				if (onError) {
+					onError('대화 저장에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
+				}
+			} else {
+				console.log('✅ 대화 저장 성공:', data);
+				saveSuccess = true;
+				// 3초 후 성공 메시지 숨기기
+				setTimeout(() => {
+					saveSuccess = false;
+				}, 3000);
+			}
+		} catch (err) {
+			console.error('대화 저장 중 오류:', err);
+			if (onError) {
+				onError('대화 저장 중 오류가 발생했습니다.');
+			}
+		} finally {
+			isSaving = false;
 		}
 	}
 
@@ -588,7 +637,7 @@
 		</button>
 	</div>
 
-	<!-- 과금 상태 표시 -->
+		<!-- 과금 상태 표시 -->
 	<div class="mx-auto w-full max-w-2xl">
 		<BillingStatus
 			{isConnected}
@@ -598,6 +647,28 @@
 			{networkActivity}
 		/>
 	</div>
+
+	<!-- 저장 상태 표시 -->
+	{#if isSaving}
+		<div class="mx-auto w-full max-w-2xl mt-4 rounded-2xl border-2 border-blue-300/50 bg-gradient-to-br from-blue-50/80 to-indigo-50/80 backdrop-blur-sm px-4 py-3 text-center text-sm text-blue-700 shadow-lg">
+			<div class="flex items-center justify-center gap-2">
+				<svg class="h-5 w-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+				</svg>
+				<span>대화 저장 중...</span>
+			</div>
+		</div>
+	{/if}
+	{#if saveSuccess}
+		<div class="mx-auto w-full max-w-2xl mt-4 rounded-2xl border-2 border-emerald-300/50 bg-gradient-to-br from-emerald-50/80 to-teal-50/80 backdrop-blur-sm px-4 py-3 text-center text-sm text-emerald-700 shadow-lg">
+			<div class="flex items-center justify-center gap-2">
+				<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+				</svg>
+				<span>대화가 저장되었습니다!</span>
+			</div>
+		</div>
+	{/if}
 
 	<!-- 대화 기록 -->
 	<div class="mx-auto w-full max-w-2xl">

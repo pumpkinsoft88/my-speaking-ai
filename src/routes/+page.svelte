@@ -2,6 +2,8 @@
 <script>
 	import RealtimeConversation from '$lib/components/RealtimeConversation.svelte';
 	import LanguageSelector from '$lib/components/LanguageSelector.svelte';
+	import ConversationList from '$lib/components/ConversationList.svelte';
+	import ConversationDetail from '$lib/components/ConversationDetail.svelte';
 	import { translations } from '$lib/i18n/translations.js';
 	import { authStore, signOut } from '$lib/stores/auth.js';
 	import { goto } from '$app/navigation';
@@ -12,12 +14,22 @@
 	let currentLanguage = $state('korean');
 	let t = $derived(translations[currentLanguage]);
 	let showScrollTop = $state(false);
+	let activeTab = $state('conversation'); // 'conversation' or 'history'
+	let selectedConversationId = $state(null);
 
 	function handleError(message) {
 		error = message;
 		setTimeout(() => {
 			error = '';
 		}, 5000);
+	}
+
+	function handleSelectConversation(conversationId) {
+		selectedConversationId = conversationId;
+	}
+
+	function handleCloseDetail() {
+		selectedConversationId = null;
 	}
 
 	function handleLanguageChange(langCode) {
@@ -144,12 +156,50 @@
 			</p>
 		</div>
 
+		<!-- 탭 메뉴 -->
+		{#if $authStore.user}
+			<div class="mx-auto w-full max-w-2xl mb-6">
+				<div class="flex gap-2 rounded-2xl border-2 border-white/50 bg-white/70 backdrop-blur-xl p-2 shadow-lg">
+					<button
+						onclick={() => activeTab = 'conversation'}
+						class="flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition-all {activeTab === 'conversation' ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}"
+					>
+						💬 대화하기
+					</button>
+					<button
+						onclick={() => activeTab = 'history'}
+						class="flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition-all {activeTab === 'history' ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}"
+					>
+						📚 대화 기록
+					</button>
+				</div>
+			</div>
+		{/if}
+
 		<!-- 메인 콘텐츠 카드 -->
 		<div
 			class="mx-auto w-full max-w-2xl rounded-3xl bg-white/70 backdrop-blur-xl shadow-2xl shadow-purple-500/10 border-2 border-white/50 p-4 sm:p-6 lg:p-8 transition-all hover:shadow-3xl hover:shadow-purple-500/20"
 		>
-			<RealtimeConversation onError={handleError} {currentLanguage} />
+			{#if activeTab === 'conversation'}
+				<RealtimeConversation onError={handleError} {currentLanguage} />
+			{:else if activeTab === 'history' && $authStore.user}
+				<ConversationList 
+					{currentLanguage} 
+					onSelectConversation={handleSelectConversation}
+					onError={handleError}
+				/>
+			{/if}
 		</div>
+
+		<!-- 대화 상세 모달 -->
+		{#if selectedConversationId}
+			<ConversationDetail 
+				conversationId={selectedConversationId}
+				{currentLanguage}
+				onClose={handleCloseDetail}
+				onError={handleError}
+			/>
+		{/if}
 
 		<!-- 에러 메시지 -->
 		{#if error}
