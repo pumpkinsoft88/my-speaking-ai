@@ -16,10 +16,45 @@ import { supabase } from './client.js';
  */
 export async function saveConversation(conversationData) {
 	try {
-		const { data: { user } } = await supabase.auth.getUser();
+		const { data: { user }, error: userError } = await supabase.auth.getUser();
+		
+		if (userError) {
+			console.error('사용자 가져오기 오류:', userError);
+			throw new Error('사용자 인증 오류: ' + userError.message);
+		}
 		
 		if (!user) {
 			throw new Error('로그인이 필요합니다.');
+		}
+
+		console.log('💾 대화 저장 시도 - 사용자 ID:', user.id);
+
+		// 프로필 확인 및 생성 (없으면 생성)
+		const { data: profile, error: profileError } = await supabase
+			.from('profiles')
+			.select('id')
+			.eq('id', user.id)
+			.single();
+
+		if (profileError && profileError.code === 'PGRST116') {
+			// 프로필이 없는 경우 생성
+			console.log('⚠️ 프로필이 없습니다. 프로필 생성 중...');
+			const { error: insertProfileError } = await supabase
+				.from('profiles')
+				.insert({
+					id: user.id,
+					email: user.email || '',
+					name: user.user_metadata?.name || user.email?.split('@')[0] || 'User'
+				});
+
+			if (insertProfileError) {
+				console.error('프로필 생성 오류:', insertProfileError);
+				throw new Error('프로필 생성 실패: ' + insertProfileError.message);
+			}
+			console.log('✅ 프로필 생성 완료');
+		} else if (profileError) {
+			console.error('프로필 확인 오류:', profileError);
+			throw new Error('프로필 확인 실패: ' + profileError.message);
 		}
 
 		// 첫 번째 사용자 메시지로 제목 생성 (없으면 기본 제목 사용)
@@ -29,6 +64,12 @@ export async function saveConversation(conversationData) {
 		const title = firstUserMessage 
 			? firstUserMessage.content[0].text.substring(0, 50) + (firstUserMessage.content[0].text.length > 50 ? '...' : '')
 			: `대화 ${new Date().toLocaleString('ko-KR')}`;
+
+		console.log('💾 대화 저장 중...', {
+			user_id: user.id,
+			title: title,
+			message_count: conversationData.messages.length
+		});
 
 		const { data, error } = await supabase
 			.from('conversations')
@@ -44,8 +85,18 @@ export async function saveConversation(conversationData) {
 			.select()
 			.single();
 
-		if (error) throw error;
+		if (error) {
+			console.error('❌ 대화 저장 실패:', {
+				error: error,
+				message: error.message,
+				details: error.details,
+				hint: error.hint,
+				code: error.code
+			});
+			throw error;
+		}
 
+		console.log('✅ 대화 저장 성공:', data);
 		return { data, error: null };
 	} catch (error) {
 		console.error('대화 저장 오류:', error);
