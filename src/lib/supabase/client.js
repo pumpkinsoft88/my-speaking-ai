@@ -19,12 +19,22 @@ export const supabase = createClient(PUBLIC_SUPABASE_DB_URL, PUBLIC_SUPABASE_DB_
 	auth: {
 		// 세션을 URL에서 자동으로 감지
 		detectSessionInUrl: true,
-		// 세션 지속성 활성화
+		// 세션 지속성 활성화 (localStorage에 저장되어 새로고침 시에도 유지됨)
 		persistSession: true,
 		// 자동 토큰 새로고침
 		autoRefreshToken: true,
 		// PKCE 플로우 활성화 (Supabase verify 엔드포인트의 code 파라미터 처리에 필요)
-		flowType: 'pkce'
+		flowType: 'pkce',
+		// 세션 저장소 설정 (localStorage 사용)
+		storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+		// 세션 만료 시간 (기본값: 3600초 = 1시간)
+		storageKey: 'sb-auth-token'
+	},
+	realtime: {
+		// Realtime 연결 설정
+		params: {
+			eventsPerSecond: 10
+		}
 	}
 });
 

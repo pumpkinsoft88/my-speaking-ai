@@ -14,15 +14,26 @@ export const authStore = writable({
 
 /**
  * 인증 초기화
+ * 새로고침 시에도 세션이 유지되도록 localStorage에서 세션을 복원합니다.
  */
 export async function initAuth() {
 	if (!browser) return;
 
 	try {
-		// 현재 세션 가져오기
+		// 현재 세션 가져오기 (localStorage에서 자동으로 복원됨)
 		const { data: { session }, error } = await supabase.auth.getSession();
 		
-		if (error) throw error;
+		if (error) {
+			console.error('세션 가져오기 오류:', error);
+			// 오류가 있어도 계속 진행 (세션이 없을 수 있음)
+		}
+
+		// 세션 복원 시도
+		if (session) {
+			console.log('✅ 세션 복원됨:', session.user?.email);
+		} else {
+			console.log('ℹ️ 저장된 세션이 없습니다.');
+		}
 
 		authStore.set({
 			user: session?.user ?? null,
@@ -30,13 +41,20 @@ export async function initAuth() {
 			loading: false
 		});
 
-		// 인증 상태 변경 리스너 설정
-		supabase.auth.onAuthStateChange((_event, session) => {
+		// 인증 상태 변경 리스너 설정 (로그인/로그아웃/토큰 갱신 등 감지)
+		supabase.auth.onAuthStateChange((event, session) => {
+			console.log('🔐 인증 상태 변경:', event, session?.user?.email || '로그아웃');
+			
 			authStore.set({
 				user: session?.user ?? null,
 				session: session,
 				loading: false
 			});
+
+			// 토큰 갱신 시에도 세션이 유지되도록 처리
+			if (event === 'TOKEN_REFRESHED' && session) {
+				console.log('🔄 토큰이 갱신되었습니다.');
+			}
 		});
 	} catch (error) {
 		console.error('Auth initialization error:', error);

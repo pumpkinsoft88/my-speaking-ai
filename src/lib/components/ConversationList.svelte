@@ -1,7 +1,8 @@
 <!-- /src/lib/components/ConversationList.svelte -->
 <script>
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { getConversations, deleteConversation } from '$lib/supabase/conversations.js';
+	import { supabase } from '$lib/supabase/client.js';
 	import { translations } from '$lib/i18n/translations.js';
 
 	export let currentLanguage = 'traditional';
@@ -22,6 +23,7 @@
 	let conversations = [];
 	let loading = true;
 	let deletingId = null;
+	let realtimeChannel = null; // Realtime 구독 채널
 
 	// 언어별 레벨/모드 표시 텍스트
 	const levelLabels = {
@@ -95,8 +97,107 @@
 		}
 	}
 
-	onMount(() => {
-		loadConversations();
+	/**
+	 * Realtime 구독 설정
+	 */
+	async function setupRealtimeSubscription() {
+		// 기존 구독이 있으면 제거
+		if (realtimeChannel) {
+			supabase.removeChannel(realtimeChannel);
+		}
+
+		// 사용자 ID 가져오기
+		const { data: { user } } = await supabase.auth.getUser();
+		if (!user) {
+			console.warn('⚠️ 사용자가 로그인하지 않았습니다. Realtime 구독을 설정할 수 없습니다.');
+			return;
+		}
+
+		// conversations 테이블 변경사항 구독
+		realtimeChannel = supabase
+			.channel(`conversations-changes-${user.id}`)
+			.on(
+				'postgres_changes',
+				{
+					event: '*', // INSERT, UPDATE, DELETE 모두 감지
+					schema: 'public',
+					table: 'conversations',
+					filter: `user_id=eq.${user.id}` // 현재 사용자의 대화만 구독
+				},
+				(payload) => {
+					console.log('🔄 Realtime 업데이트:', payload);
+					
+					// 변경사항에 따라 목록 업데이트
+					if (payload.eventType === 'INSERT') {
+						// 새 대화 추가
+						const newConversation = payload.new;
+						conversations = [
+							{
+								id: newConversation.id,
+								title: newConversation.title,
+								language: newConversation.language,
+								level: newConversation.level,
+								practice_mode: newConversation.practice_mode,
+								created_at: newConversation.created_at,
+								updated_at: newConversation.updated_at,
+								messageCount: Array.isArray(newConversation.messages) ? newConversation.messages.length : 0
+							},
+							...conversations
+						];
+					} else if (payload.eventType === 'UPDATE') {
+						// 대화 업데이트
+						const updatedConversation = payload.new;
+						conversations = conversations.map(conv =>
+							conv.id === updatedConversation.id
+								? {
+										...conv,
+										title: updatedConversation.title,
+										language: updatedConversation.language,
+										level: updatedConversation.level,
+										practice_mode: updatedConversation.practice_mode,
+										updated_at: updatedConversation.updated_at,
+										messageCount: Array.isArray(updatedConversation.messages) ? updatedConversation.messages.length : conv.messageCount
+									}
+								: conv
+						);
+					} else if (payload.eventType === 'DELETE') {
+						// 대화 삭제
+						const deletedId = payload.old.id;
+						conversations = conversations.filter(conv => conv.id !== deletedId);
+					}
+				}
+			)
+			.subscribe((status) => {
+				console.log('📡 Realtime 구독 상태:', status);
+				if (status === 'SUBSCRIBED') {
+					console.log('✅ Realtime 구독 성공');
+				} else if (status === 'CHANNEL_ERROR') {
+					console.error('❌ Realtime 구독 오류');
+				}
+			});
+
+		return realtimeChannel;
+	}
+
+	onMount(async () => {
+		// 초기 목록 로드
+		await loadConversations();
+		
+		// 사용자 ID 가져오기
+		const { data: { user } } = await supabase.auth.getUser();
+		
+		if (user) {
+			// Realtime 구독 설정
+			setupRealtimeSubscription();
+		}
+	});
+
+	onDestroy(() => {
+		// 컴포넌트 언마운트 시 구독 제거
+		if (realtimeChannel) {
+			supabase.removeChannel(realtimeChannel);
+			realtimeChannel = null;
+		}
 	});
 </script>
 
